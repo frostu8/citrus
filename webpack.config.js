@@ -8,7 +8,7 @@ const dist = path.resolve(__dirname, "dist");
 module.exports = {
   mode: "production",
   entry: {
-    index: "./pkg/citrus.js"
+    index: "./pkg/index.js"
   },
   output: {
     path: dist,
@@ -18,11 +18,14 @@ module.exports = {
     contentBase: dist,
   },
   plugins: [
-    new HtmlWebpackPlugin({
+    new HtmlPlugin({
       title: 'Citrus',
     }),
     new WasmPackPlugin({
       crateDirectory: __dirname,
     }),
   ],
+  experiments: {
+    asyncWebAssembly: true,
+  },
 };

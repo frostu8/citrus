@@ -48,3 +48,7 @@ console_error_panic_hook = "0.1"
 git = "https://github.com/frostu8/citrus-common.git"
 branch = "main"
 features = ["base64"]
+
+# yew; a modular React-like wasm framework
+[dependencies.yew]
+version = "0.17"

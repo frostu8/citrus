@@ -34,7 +34,16 @@ wee_alloc = { version = "0.4", optional = true }
 # like the DOM.
 [dependencies.web-sys]
 version = "0.3"
-features = ["console"]
+features = [
+    "HtmlCanvasElement",
+    "WebGlBuffer",
+    "WebGlProgram",
+    "WebGlRenderingContext",
+    "WebGlShader",
+    "WebGlTexture",
+    "WebGlUniformLocation",
+    "console"
+]
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires
@@ -48,6 +57,10 @@ console_error_panic_hook = "0.1"
 git = "https://github.com/frostu8/citrus-common.git"
 branch = "main"
 features = ["base64"]
+
+# js_sys
+[dependencies.js-sys]
+version = "0.3"
 
 # yew; a modular React-like wasm framework
 [dependencies.yew]

@@ -7,7 +7,8 @@ use yew::prelude::*;
 use yew::services::render::{RenderTask, RenderService};
 use yew::services::resize::{ResizeTask, ResizeService};
 
-use shader::{BasicShader, Color};
+use shader::BasicShader;
+use crate::gl::Color;
 
 pub struct FieldEditor {
     link: ComponentLink<Self>,
@@ -134,7 +135,7 @@ impl FieldEditor {
 
         Self::update_size(&gl, &canvas);
 
-        let basic_shader = match BasicShader::new(&gl) {
+        let basic_shader = match BasicShader::new(gl) {
             Ok(p) => p,
             Err(err) => {
                 // print pretty error to console.

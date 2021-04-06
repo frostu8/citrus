@@ -1,21 +1,8 @@
-mod color;
-mod error;
+use crate::gl::*;
 
-use wasm_bindgen::JsCast as _;
-use web_sys::{
-    HtmlImageElement,
-    WebGlShader, 
-    WebGlProgram, 
-    WebGlTexture, 
-    WebGlRenderingContext as GL,
-    WebGlUniformLocation,
-};
 use na::{Vector2, Matrix3};
 
 use std::ops::Deref;
-
-pub use error::*;
-pub use color::*;
 
 const BASIC_VERT_SHADER: &'static str = include_str!("./basic.vert");
 const BASIC_FRAG_SHADER: &'static str = include_str!("./basic.frag");
@@ -27,9 +14,9 @@ pub struct BasicShader {
 }
 
 impl BasicShader {
-    /// Makes a new field program.
-    pub fn new(gl: &GL) -> Result<BasicShader, GlError> {
-        BasicGlProgram::new(gl)
+    /// Makes a new field program, cloning the reference to the GL type.
+    pub fn new(gl: impl Into<GL>) -> Result<BasicShader, GlError> {
+        BasicGlProgram::new(gl.into())
             .map(|program| BasicShader {
                 transform: Matrix3::identity(),
                 program,
@@ -60,23 +47,22 @@ impl BasicShader {
 
 struct BasicGlProgram {
     gl: GL,
-    program: WebGlProgram,
+    program: GLProgram,
     projection: Matrix3<f32>,
     // uniforms
-    view_matrix: WebGlUniformLocation,
-    projection_matrix: WebGlUniformLocation,
-    texture: WebGlUniformLocation,
+    view_matrix: GLUniformLocation,
+    projection_matrix: GLUniformLocation,
+    texture: GLUniformLocation,
     // attributes
     pos: u32,
     tex_coord: u32,
 }
 
 impl BasicGlProgram {
-    pub fn new(gl: &GL) -> Result<BasicGlProgram, GlError> {
-        let program = link_program(
-            gl,
-            compile_vert_shader(gl, BASIC_VERT_SHADER)?,
-            compile_frag_shader(gl, BASIC_FRAG_SHADER)?,
+    pub fn new(gl: GL) -> Result<BasicGlProgram, GlError> {
+        let program = gl.link_program(
+            gl.compile_vert_shader(BASIC_VERT_SHADER)?,
+            gl.compile_frag_shader(BASIC_FRAG_SHADER)?,
         )?;
 
         Ok(BasicGlProgram {
@@ -93,19 +79,19 @@ impl BasicGlProgram {
                     .append_translation(&na::Vector2::new(-1., 1.))
             },
 
-            view_matrix: get_uniform_location(gl, &program, "viewMatrix")?,
-            projection_matrix: get_uniform_location(gl, &program, "projectionMatrix")?,
-            texture: get_uniform_location(gl, &program, "uTexture")?,
+            view_matrix: gl.get_uniform_location(&program, "viewMatrix")?,
+            projection_matrix: gl.get_uniform_location(&program, "projectionMatrix")?,
+            texture: gl.get_uniform_location(&program, "uTexture")?,
 
             program,
-            gl: gl.clone().unchecked_into(),
+            gl,
         })
     }
 
     pub fn draw_rect(
         &self, 
         matrix: &na::Matrix3<f32>,
-        tex: &Texture,
+        tex: &GLTexture,
         x: f32, y: f32,
         width: f32, height: f32,
     ) {
@@ -162,14 +148,13 @@ impl BasicGlProgram {
         self.gl.uniform1i(Some(&self.texture), 0);
 
         // attach the projection matrix, used to convert the -1.0 and 1.0 to
-        uniform_matrix3(
-            &self.gl, 
+        self.gl.uniform_matrix3(
             &self.projection_matrix,
             &self.projection,
         );
 
         // attach the view matrix
-        uniform_matrix3(&self.gl, &self.view_matrix, matrix);
+        self.gl.uniform_matrix3(&self.view_matrix, matrix);
 
         self.gl.draw_arrays(GL::TRIANGLE_STRIP, 0, 4);
 
@@ -177,136 +162,12 @@ impl BasicGlProgram {
         self.gl.delete_buffer(Some(&tex_coord_buffer));
         self.gl.delete_buffer(Some(&vertex_buffer));
     }
-
-    /// # Panics
-    /// `image` must be complete.
-    pub fn texture(&self, image: &HtmlImageElement) -> Texture {
-        let texture = self.gl.create_texture().unwrap();
-        self.gl.bind_texture(GL::TEXTURE_2D, Some(&texture));
-
-        // create texture
-        if image.complete() {
-            self.gl.tex_image_2d_with_u32_and_u32_and_image(
-                GL::TEXTURE_2D,
-                0,
-                GL::RGBA as i32,
-                GL::RGBA,
-                GL::UNSIGNED_BYTE,
-                image,
-            ).unwrap();
-
-            Texture(&self.gl, texture)
-        } else {
-            panic!("image is not complete!");
-        }
-    }
-
-    pub fn solid_color_texture(&self, color: Color) -> Texture {
-        let texture = self.gl.create_texture().unwrap();
-        self.gl.bind_texture(GL::TEXTURE_2D, Some(&texture));
-
-        // create texture with blue pixel
-        // this should always be valid
-        self.gl.tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
-            GL::TEXTURE_2D,
-            0,
-            GL::RGBA as i32,
-            1,
-            1,
-            0,
-            GL::RGBA,
-            GL::UNSIGNED_BYTE,
-            Some(&[color.red(), color.green(), color.blue(), color.alpha()]),
-        ).unwrap();
-
-        Texture(&self.gl, texture)
-    }
 }
 
-/// Handles texture dropping.
-pub struct Texture<'a>(&'a GL, WebGlTexture);
-
-impl<'a> Deref for Texture<'a> {
-    type Target = WebGlTexture;
+impl Deref for BasicGlProgram {
+    type Target = GL;
 
     fn deref(&self) -> &Self::Target {
-        &self.1
-    }
-}
-
-impl<'a> Drop for Texture<'a> {
-    fn drop(&mut self) {
-        self.0.delete_texture(Some(&self.1));
-    }
-}
-
-fn uniform_matrix3(
-    gl: &GL,
-    uniform: &WebGlUniformLocation,
-    mat: &na::Matrix3<f32>,
-) {
-    gl.uniform_matrix3fv_with_f32_array(
-        Some(&uniform),
-        false,
-        mat.as_slice(),
-    );
-}
-
-fn get_uniform_location(
-    gl: &GL, program: &WebGlProgram, name: &str
-) -> Result<WebGlUniformLocation, UniformNotFoundError> {
-    gl.get_uniform_location(program, name)
-        .map(|u| Ok(u))
-        .unwrap_or(Err(UniformNotFoundError::new(name.to_string())))
-}
-
-fn link_program(
-    gl: &GL, 
-    vert: WebGlShader, 
-    frag: WebGlShader,
-) -> Result<WebGlProgram, ProgramLinkError> {
-    // create and link program
-    let program = gl.create_program().unwrap();
-    gl.attach_shader(&program, &vert);
-    gl.attach_shader(&program, &frag);
-    gl.link_program(&program);
-
-    // check for link errors
-    if gl.get_program_parameter(&program, GL::LINK_STATUS).as_bool().unwrap() {
-        Ok(program)
-    } else {
-        let err = gl.get_program_info_log(&program).unwrap();
-        gl.delete_program(Some(&program));
-
-        Err(ProgramLinkError::new(err))
-    }
-}
-
-fn compile_vert_shader(gl: &GL, src: &str) -> Result<WebGlShader, ShaderCompileError> {
-    compile_shader(gl, GL::VERTEX_SHADER, src)
-}
-
-fn compile_frag_shader(gl: &GL, src: &str) -> Result<WebGlShader, ShaderCompileError> {
-    compile_shader(gl, GL::FRAGMENT_SHADER, src)
-}
-
-fn compile_shader(
-    gl: &GL, 
-    kind: u32, 
-    src: &str,
-) -> Result<WebGlShader, ShaderCompileError> {
-    // create and compile shader
-    let shader = gl.create_shader(kind).unwrap();
-    gl.shader_source(&shader, src);
-    gl.compile_shader(&shader);
-
-    // check shader compilation issues
-    if gl.get_shader_parameter(&shader, GL::COMPILE_STATUS).as_bool().unwrap() {
-        Ok(shader)
-    } else {
-        let err = gl.get_shader_info_log(&shader).unwrap();
-        gl.delete_shader(Some(&shader));
-
-        Err(ShaderCompileError::new(err))
+        &self.gl
     }
 }

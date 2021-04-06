@@ -62,6 +62,10 @@ features = ["base64"]
 [dependencies.js-sys]
 version = "0.3"
 
+# nalgebra, for big brain math
+[dependencies.nalgebra]
+version = "0.25"
+
 # yew; a modular React-like wasm framework
 [dependencies.yew]
 version = "0.17"

@@ -77,20 +77,24 @@ impl Component for FieldEditor {
 impl FieldEditor {
     /// Renders the field editor to the attached canvas.
     pub fn render(&self, timestamp: f64) {
-        use shader::FieldProgram;
+        use shader::{BasicShader, Color};
 
         let gl = self.gl.as_ref().unwrap();
 
-        let field_program = match FieldProgram::new(gl) {
+        let field_program = match BasicShader::new(gl) {
             Ok(p) => p,
             Err(err) => {
                 // print pretty error to console.
-                console::error_1(&JsValue::from_str(&err));
+                console::error_1(&JsValue::from_str(&err.to_string()));
                 panic!("failed to compile shaders");
             },
         };
 
-        field_program.draw_panel(&shader::test_texture(gl).unwrap(), 0., 0.);
+        field_program.fill_rect(
+            Color::BLUE,
+            0., 0.,
+            150., 150.,
+        );
     }
 
     fn request_animation_frame(&mut self) {

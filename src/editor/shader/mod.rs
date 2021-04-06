@@ -1,3 +1,6 @@
+mod color;
+mod error;
+
 use wasm_bindgen::JsCast as _;
 use web_sys::{
     WebGlShader, 
@@ -6,47 +9,89 @@ use web_sys::{
     WebGlRenderingContext as GL,
     WebGlUniformLocation,
 };
+use na::{Vector2, Matrix3};
 
-use std::ops::Deref;
+pub use error::*;
+pub use color::*;
 
-const FIELD_VERT_SHADER: &'static str = include_str!("./field.vert");
-const FIELD_FRAG_SHADER: &'static str = include_str!("./field.frag");
+const BASIC_VERT_SHADER: &'static str = include_str!("./basic.vert");
+const BASIC_FRAG_SHADER: &'static str = include_str!("./basic.frag");
 
-/// Shader used to render panels to a canvas.
-pub struct FieldProgram {
+/// GL shader that exposes basic functions to draw to a canvas.
+pub struct BasicShader { 
+    transform: Matrix3<f32>,
+    program: BasicGlProgram,
+}
+
+impl BasicShader {
+    /// Makes a new field program.
+    pub fn new(gl: &GL) -> Result<BasicShader, GlError> {
+        BasicGlProgram::new(gl)
+            .map(|program| BasicShader {
+                transform: Matrix3::identity(),
+                program,
+            })
+    }
+
+    /// Fills a rectangle with a color.
+    pub fn fill_rect(
+        &self,
+        color: Color,
+        x: f32, y: f32,
+        width: f32, height: f32,
+    ) {
+        let color_tex = self.program.solid_color_texture(color);
+
+        self.program.draw_rect(
+            &self.transform,
+            &color_tex,
+            x, y, width, height,
+        );
+
+        self.program.delete_texture(color_tex);
+    }
+}
+
+struct BasicGlProgram {
     gl: GL,
     program: WebGlProgram,
     // uniforms
     view_matrix: WebGlUniformLocation,
-    panel_texture: WebGlUniformLocation,
+    projection_matrix: WebGlUniformLocation,
+    texture: WebGlUniformLocation,
     // attributes
     pos: u32,
     tex_coord: u32,
 }
 
-impl FieldProgram {
-    /// Makes a new field program.
-    pub fn new(gl: &GL) -> Result<FieldProgram, String> {
+impl BasicGlProgram {
+    pub fn new(gl: &GL) -> Result<BasicGlProgram, GlError> {
         let program = link_program(
             gl,
-            compile_vert_shader(gl, FIELD_VERT_SHADER)?,
-            compile_frag_shader(gl, FIELD_FRAG_SHADER)?,
+            compile_vert_shader(gl, BASIC_VERT_SHADER)?,
+            compile_frag_shader(gl, BASIC_FRAG_SHADER)?,
         )?;
 
-        Ok(FieldProgram {
+        Ok(BasicGlProgram {
             pos: gl.get_attrib_location(&program, "aPos") as u32,
             tex_coord: gl.get_attrib_location(&program, "aTexCoord") as u32,
 
             view_matrix: get_uniform_location(gl, &program, "viewMatrix")?,
-            panel_texture: get_uniform_location(gl, &program, "panelTexture")?,
+            projection_matrix: get_uniform_location(gl, &program, "projectionMatrix")?,
+            texture: get_uniform_location(gl, &program, "uTexture")?,
 
             program,
             gl: gl.clone().unchecked_into(),
         })
     }
 
-    /// Draw a panel at the position specified
-    pub fn draw_panel(&self, tex: &WebGlTexture, x: f32, y: f32) {
+    pub fn draw_rect(
+        &self, 
+        matrix: &na::Matrix3<f32>,
+        tex: &WebGlTexture,
+        x: f32, y: f32,
+        width: f32, height: f32,
+    ) {
         // use our program
         self.gl.use_program(Some(&self.program));
 
@@ -54,13 +99,13 @@ impl FieldProgram {
         let vertex_buffer = self.gl.create_buffer().unwrap();
         let vertex_data = js_sys::Float32Array::from(&[
             // top right
-            x + 1., y,
+            x + width, y,
             // top left corner is just x, y
-            x,      y,
+            x,         y,
             // bottom right
-            x + 1., y + 1.,
+            x + width, y + height,
             // bottom left
-            x,      y + 1.,
+            x,         y + height,
         ][..]);
 
         self.gl.bind_buffer(GL::ARRAY_BUFFER, Some(&vertex_buffer));
@@ -77,8 +122,8 @@ impl FieldProgram {
         // create texture pos buffer
         let tex_coord_buffer = self.gl.create_buffer().unwrap();
         let tex_coord_data = js_sys::Float32Array::from(&[
-            0., 0.,
             1., 0.,
+            0., 0.,
             1., 1.,
             0., 1.,
         ][..]);
@@ -97,57 +142,84 @@ impl FieldProgram {
         // attach the texture
         self.gl.active_texture(GL::TEXTURE0);
         self.gl.bind_texture(GL::TEXTURE_2D, Some(tex));
-        self.gl.uniform1i(Some(&self.panel_texture), 0);
+        self.gl.uniform1i(Some(&self.texture), 0);
 
-        // attach the transformation matrix
-        // TODO
-        self.gl.uniform_matrix3fv_with_f32_array(
-            Some(&self.view_matrix),
-            false,
-            &[
-                128., 0., 0.,
-                0., 128., 0.,
-                0., 0., 1.,
-            ],
+        // attach the projection matrix, used to convert the -1.0 and 1.0 to
+        // pixel points
+        let scaling = Vector2::new(
+            1. / (self.gl.drawing_buffer_width() as f32 / 2.),
+            // flip height so the origin is the top left
+            -(1. / (self.gl.drawing_buffer_height() as f32 / 2.)),
+        ) / 2.;
+        
+        uniform_matrix3(
+            &self.gl, 
+            &self.projection_matrix, 
+            &Matrix3::new_nonuniform_scaling(&scaling)
+                .append_translation(&na::Vector2::new(-1., 1.)),
         );
 
+        // attach the view matrix
+        uniform_matrix3(&self.gl, &self.view_matrix, matrix);
+
         self.gl.draw_arrays(GL::TRIANGLE_STRIP, 0, 4);
+
+        // delete buffers
+        self.gl.delete_buffer(Some(&tex_coord_buffer));
+        self.gl.delete_buffer(Some(&vertex_buffer));
+    }
+
+    pub fn solid_color_texture(&self, color: Color) -> WebGlTexture {
+        let texture = self.gl.create_texture().unwrap();
+        self.gl.bind_texture(GL::TEXTURE_2D, Some(&texture));
+
+        // create texture with blue pixel
+        // this should always be valid
+        self.gl.tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
+            GL::TEXTURE_2D,
+            0,
+            GL::RGBA as i32,
+            1,
+            1,
+            0,
+            GL::RGBA,
+            GL::UNSIGNED_BYTE,
+            Some(&[color.red(), color.green(), color.blue(), color.alpha()]),
+        ).unwrap();
+
+        texture
+    }
+
+    pub fn delete_texture(&self, tex: WebGlTexture) {
+        self.gl.delete_texture(Some(&tex));
     }
 }
 
-pub fn test_texture(gl: &GL) -> Result<WebGlTexture, String> {
-    let texture = gl.create_texture().unwrap();
-    gl.bind_texture(GL::TEXTURE_2D, Some(&texture));
-
-    // create texture with blue pixel
-    gl.tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
-        GL::TEXTURE_2D,
-        0,
-        GL::RGBA as i32,
-        1,
-        1,
-        0,
-        GL::RGBA,
-        GL::UNSIGNED_BYTE,
-        Some(&[0, 0, 255, 255]),
-    )
-        .map(|_| texture)
-        .map_err(|_| String::from("failed to init test texture"))
+fn uniform_matrix3(
+    gl: &GL,
+    uniform: &WebGlUniformLocation,
+    mat: &na::Matrix3<f32>,
+) {
+    gl.uniform_matrix3fv_with_f32_array(
+        Some(&uniform),
+        false,
+        mat.as_slice(),
+    );
 }
 
 fn get_uniform_location(
     gl: &GL, program: &WebGlProgram, name: &str
-) -> Result<WebGlUniformLocation, String> {
+) -> Result<WebGlUniformLocation, UniformNotFoundError> {
     gl.get_uniform_location(program, name)
         .map(|u| Ok(u))
-        .unwrap_or(Err(format!("cannot find uniform: {}", name)))
+        .unwrap_or(Err(UniformNotFoundError::new(name.to_string())))
 }
 
 fn link_program(
     gl: &GL, 
     vert: WebGlShader, 
     frag: WebGlShader,
-) -> Result<WebGlProgram, String> {
+) -> Result<WebGlProgram, ProgramLinkError> {
     // create and link program
     let program = gl.create_program().unwrap();
     gl.attach_shader(&program, &vert);
@@ -161,19 +233,23 @@ fn link_program(
         let err = gl.get_program_info_log(&program).unwrap();
         gl.delete_program(Some(&program));
 
-        Err(err)
+        Err(ProgramLinkError::new(err))
     }
 }
 
-fn compile_vert_shader(gl: &GL, src: &str) -> Result<WebGlShader, String> {
+fn compile_vert_shader(gl: &GL, src: &str) -> Result<WebGlShader, ShaderCompileError> {
     compile_shader(gl, GL::VERTEX_SHADER, src)
 }
 
-fn compile_frag_shader(gl: &GL, src: &str) -> Result<WebGlShader, String> {
+fn compile_frag_shader(gl: &GL, src: &str) -> Result<WebGlShader, ShaderCompileError> {
     compile_shader(gl, GL::FRAGMENT_SHADER, src)
 }
 
-fn compile_shader(gl: &GL, kind: u32, src: &str) -> Result<WebGlShader, String> {
+fn compile_shader(
+    gl: &GL, 
+    kind: u32, 
+    src: &str,
+) -> Result<WebGlShader, ShaderCompileError> {
     // create and compile shader
     let shader = gl.create_shader(kind).unwrap();
     gl.shader_source(&shader, src);
@@ -186,6 +262,6 @@ fn compile_shader(gl: &GL, kind: u32, src: &str) -> Result<WebGlShader, String> 
         let err = gl.get_shader_info_log(&shader).unwrap();
         gl.delete_shader(Some(&shader));
 
-        Err(err)
+        Err(ShaderCompileError::new(err))
     }
 }

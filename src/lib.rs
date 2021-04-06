@@ -1,3 +1,5 @@
+extern crate nalgebra as na;
+
 pub mod editor;
 
 use wasm_bindgen::prelude::*;

@@ -1,65 +1,58 @@
+pub mod assets;
 pub mod shader;
 
 use wasm_bindgen::{JsValue, JsCast as _};
 use web_sys::{console, HtmlCanvasElement, WebGlRenderingContext as GL};
 use yew::prelude::*;
 use yew::services::render::{RenderTask, RenderService};
+use yew::services::resize::{ResizeTask, ResizeService};
+
+use shader::{BasicShader, Color};
 
 pub struct FieldEditor {
     link: ComponentLink<Self>,
-    props: Props,
 
     // canvas things
     canvas: NodeRef,
     gl: Option<GL>,
+    basic_shader: Option<BasicShader>,
+
+    // callback things
     _render_request: Option<RenderTask>,
-}
-
-#[derive(Clone, Properties)]
-pub struct Props {
-    width: i16,
-    height: i16,
-}
-
-impl Default for Props {
-    fn default() -> Props {
-        Props {
-            width: 640,
-            height: 480,
-        }
-    }
+    _resize_request: Option<ResizeTask>,
 }
 
 pub enum Msg {
     Render(f64),
+    Resize,
 }
 
 impl Component for FieldEditor {
     type Message = Msg;
-    type Properties = Props; 
+    type Properties = (); 
 
-    fn create(props: Self::Properties, link: ComponentLink<Self>) -> Self {
+    fn create(_props: Self::Properties, link: ComponentLink<Self>) -> Self {
         FieldEditor { 
             link,
-            props,
             canvas: NodeRef::default(),
             gl: None,
+            basic_shader: None,
             _render_request: None,
+            _resize_request: None,
         }
     }
 
     fn rendered(&mut self, first_render: bool) {
-        let canvas = self.canvas.cast::<HtmlCanvasElement>().unwrap();
+        // rebuild gl if gl is invalidated
+        if self.gl_invalidated() {
+            self.build_gl();
+        }
 
-        // get gl context
-        let gl: GL = canvas
-            .get_context("webgl").unwrap().unwrap()
-            .dyn_into().unwrap();
-
-        self.gl = Some(gl);
+        self.build_basic_shader();
 
         if first_render {
             self.request_animation_frame();
+            self.request_resize_event();
         }
     }
 
@@ -74,15 +67,17 @@ impl Component for FieldEditor {
 
                 false
             },
+            Msg::Resize => {
+                // rerender
+                true
+            },
         }
     }
 
     fn view(&self) -> Html {
         html! {
-            <div>
-                <canvas width=self.props.width 
-                        height=self.props.height 
-                        ref=self.canvas.clone()>
+            <div class="editor-container">
+                <canvas class="editor-canvas" ref=self.canvas.clone()>
                 </canvas>
             </div>
         }
@@ -96,12 +91,50 @@ impl Component for FieldEditor {
 
 impl FieldEditor {
     /// Renders the field editor to the attached canvas.
-    pub fn render(&self, timestamp: f64) {
-        use shader::{BasicShader, Color};
+    pub fn render(&mut self, timestamp: f64) {
+        let basic = match self.basic_shader.as_mut() {
+            Some(basic) => basic,
+            None => return,
+        };
 
-        let gl = self.gl.as_ref().unwrap();
+        basic.fill_rect(
+            Color::BLUE,
+            0., 0.,
+            150., 150.,
+        );
+    }
 
-        let field_program = match BasicShader::new(gl) {
+    fn gl_invalidated(&self) -> bool {
+        self.gl.as_ref().map(|gl| gl.is_context_lost()).unwrap_or(true)
+    }
+
+    fn build_gl(&mut self) {
+        let canvas = self.canvas.cast::<HtmlCanvasElement>().unwrap();
+
+        // get gl context
+        match canvas.get_context("webgl").ok().flatten() {
+            Some(gl) => {
+                self.gl = Some(gl.dyn_into().unwrap());
+            },
+            None => {
+                canvas.set_inner_text(
+                    "OpenGL is not supported on your browser."
+                );
+            }
+        }
+    }
+
+    fn build_basic_shader(&mut self) {
+        let canvas = self.canvas.cast::<HtmlCanvasElement>().unwrap();
+
+        let gl = match self.gl.as_ref() {
+            Some(gl) => gl,
+            None => return,
+        };
+
+        Self::update_size(&gl, &canvas);
+
+        let basic_shader = match BasicShader::new(&gl) {
             Ok(p) => p,
             Err(err) => {
                 // print pretty error to console.
@@ -110,11 +143,24 @@ impl FieldEditor {
             },
         };
 
-        field_program.fill_rect(
-            Color::BLUE,
-            0., 0.,
-            150., 150.,
-        );
+        self.basic_shader = Some(basic_shader);
+    }
+
+    fn update_size(gl: &GL, canvas: &HtmlCanvasElement) {
+        let width = canvas.client_width();
+        let height = canvas.client_height();
+
+        canvas.set_width(width as u32);
+        canvas.set_height(height as u32);
+
+        gl.viewport(0, 0, width, height);
+    }
+
+    fn request_resize_event(&mut self) {
+        let resize = self.link.callback(|_| Msg::Resize);
+        let handle = ResizeService::new().register(resize);
+
+        self._resize_request = Some(handle);
     }
 
     fn request_animation_frame(&mut self) {

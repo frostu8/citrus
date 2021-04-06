@@ -3,6 +3,7 @@ mod error;
 
 use wasm_bindgen::JsCast as _;
 use web_sys::{
+    HtmlImageElement,
     WebGlShader, 
     WebGlProgram, 
     WebGlTexture, 
@@ -10,6 +11,8 @@ use web_sys::{
     WebGlUniformLocation,
 };
 use na::{Vector2, Matrix3};
+
+use std::ops::Deref;
 
 pub use error::*;
 pub use color::*;
@@ -19,7 +22,7 @@ const BASIC_FRAG_SHADER: &'static str = include_str!("./basic.frag");
 
 /// GL shader that exposes basic functions to draw to a canvas.
 pub struct BasicShader { 
-    transform: Matrix3<f32>,
+    pub transform: Matrix3<f32>,
     program: BasicGlProgram,
 }
 
@@ -31,6 +34,11 @@ impl BasicShader {
                 transform: Matrix3::identity(),
                 program,
             })
+    }
+
+    /// Gets a reference to the related GL context.
+    pub fn gl(&self) -> &GL {
+        &self.program.gl
     }
 
     /// Fills a rectangle with a color.
@@ -47,8 +55,6 @@ impl BasicShader {
             &color_tex,
             x, y, width, height,
         );
-
-        self.program.delete_texture(color_tex);
     }
 }
 
@@ -99,7 +105,7 @@ impl BasicGlProgram {
     pub fn draw_rect(
         &self, 
         matrix: &na::Matrix3<f32>,
-        tex: &WebGlTexture,
+        tex: &Texture,
         x: f32, y: f32,
         width: f32, height: f32,
     ) {
@@ -172,7 +178,30 @@ impl BasicGlProgram {
         self.gl.delete_buffer(Some(&vertex_buffer));
     }
 
-    pub fn solid_color_texture(&self, color: Color) -> WebGlTexture {
+    /// # Panics
+    /// `image` must be complete.
+    pub fn texture(&self, image: &HtmlImageElement) -> Texture {
+        let texture = self.gl.create_texture().unwrap();
+        self.gl.bind_texture(GL::TEXTURE_2D, Some(&texture));
+
+        // create texture
+        if image.complete() {
+            self.gl.tex_image_2d_with_u32_and_u32_and_image(
+                GL::TEXTURE_2D,
+                0,
+                GL::RGBA as i32,
+                GL::RGBA,
+                GL::UNSIGNED_BYTE,
+                image,
+            ).unwrap();
+
+            Texture(&self.gl, texture)
+        } else {
+            panic!("image is not complete!");
+        }
+    }
+
+    pub fn solid_color_texture(&self, color: Color) -> Texture {
         let texture = self.gl.create_texture().unwrap();
         self.gl.bind_texture(GL::TEXTURE_2D, Some(&texture));
 
@@ -190,11 +219,24 @@ impl BasicGlProgram {
             Some(&[color.red(), color.green(), color.blue(), color.alpha()]),
         ).unwrap();
 
-        texture
+        Texture(&self.gl, texture)
     }
+}
 
-    pub fn delete_texture(&self, tex: WebGlTexture) {
-        self.gl.delete_texture(Some(&tex));
+/// Handles texture dropping.
+pub struct Texture<'a>(&'a GL, WebGlTexture);
+
+impl<'a> Deref for Texture<'a> {
+    type Target = WebGlTexture;
+
+    fn deref(&self) -> &Self::Target {
+        &self.1
+    }
+}
+
+impl<'a> Drop for Texture<'a> {
+    fn drop(&mut self) {
+        self.0.delete_texture(Some(&self.1));
     }
 }
 

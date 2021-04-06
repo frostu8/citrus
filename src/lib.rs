@@ -1,6 +1,10 @@
 extern crate nalgebra as na;
 
 pub mod editor;
+pub mod enum_map;
+
+#[cfg(test)]
+mod tests;
 
 use wasm_bindgen::prelude::*;
 

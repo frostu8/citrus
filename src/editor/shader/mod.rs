@@ -55,6 +55,7 @@ impl BasicShader {
 struct BasicGlProgram {
     gl: GL,
     program: WebGlProgram,
+    projection: Matrix3<f32>,
     // uniforms
     view_matrix: WebGlUniformLocation,
     projection_matrix: WebGlUniformLocation,
@@ -75,6 +76,16 @@ impl BasicGlProgram {
         Ok(BasicGlProgram {
             pos: gl.get_attrib_location(&program, "aPos") as u32,
             tex_coord: gl.get_attrib_location(&program, "aTexCoord") as u32,
+            projection: {
+                let scaling = Vector2::new(
+                    1. / (gl.drawing_buffer_width() as f32 / 2.),
+                    // flip height so the origin is the top left
+                    -(1. / (gl.drawing_buffer_height() as f32 / 2.)),
+                ) / 2.;
+                
+                Matrix3::new_nonuniform_scaling(&scaling)
+                    .append_translation(&na::Vector2::new(-1., 1.))
+            },
 
             view_matrix: get_uniform_location(gl, &program, "viewMatrix")?,
             projection_matrix: get_uniform_location(gl, &program, "projectionMatrix")?,
@@ -145,18 +156,10 @@ impl BasicGlProgram {
         self.gl.uniform1i(Some(&self.texture), 0);
 
         // attach the projection matrix, used to convert the -1.0 and 1.0 to
-        // pixel points
-        let scaling = Vector2::new(
-            1. / (self.gl.drawing_buffer_width() as f32 / 2.),
-            // flip height so the origin is the top left
-            -(1. / (self.gl.drawing_buffer_height() as f32 / 2.)),
-        ) / 2.;
-        
         uniform_matrix3(
             &self.gl, 
-            &self.projection_matrix, 
-            &Matrix3::new_nonuniform_scaling(&scaling)
-                .append_translation(&na::Vector2::new(-1., 1.)),
+            &self.projection_matrix,
+            &self.projection,
         );
 
         // attach the view matrix

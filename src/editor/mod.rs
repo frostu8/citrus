@@ -1,4 +1,4 @@
-mod shader;
+pub mod shader;
 
 use wasm_bindgen::{JsValue, JsCast as _};
 use web_sys::{console, HtmlCanvasElement, WebGlRenderingContext as GL};
@@ -7,11 +7,27 @@ use yew::services::render::{RenderTask, RenderService};
 
 pub struct FieldEditor {
     link: ComponentLink<Self>,
+    props: Props,
 
     // canvas things
     canvas: NodeRef,
     gl: Option<GL>,
     _render_request: Option<RenderTask>,
+}
+
+#[derive(Clone, Properties)]
+pub struct Props {
+    width: i16,
+    height: i16,
+}
+
+impl Default for Props {
+    fn default() -> Props {
+        Props {
+            width: 640,
+            height: 480,
+        }
+    }
 }
 
 pub enum Msg {
@@ -20,11 +36,12 @@ pub enum Msg {
 
 impl Component for FieldEditor {
     type Message = Msg;
-    type Properties = ();
+    type Properties = Props; 
 
     fn create(props: Self::Properties, link: ComponentLink<Self>) -> Self {
         FieldEditor { 
             link,
+            props,
             canvas: NodeRef::default(),
             gl: None,
             _render_request: None,
@@ -63,7 +80,10 @@ impl Component for FieldEditor {
     fn view(&self) -> Html {
         html! {
             <div>
-                <canvas ref=self.canvas.clone()/>
+                <canvas width=self.props.width 
+                        height=self.props.height 
+                        ref=self.canvas.clone()>
+                </canvas>
             </div>
         }
     }

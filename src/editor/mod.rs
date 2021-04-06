@@ -31,8 +31,8 @@ pub struct FieldEditor {
 
 pub enum Msg {
     Render(f64),
-    ImageLoads((HtmlImageElement, PanelKind)),
-    ImageErrors((HtmlImageElement, PanelKind)),
+    TextureLoad((HtmlImageElement, PanelKind)),
+    TextureError((HtmlImageElement, PanelKind)),
     Resize,
 }
 
@@ -89,7 +89,7 @@ impl Component for FieldEditor {
 
                 false
             },
-            Msg::ImageLoads((image, panel_kind)) => {
+            Msg::TextureLoad((image, panel_kind)) => {
                 // NOTE: this call is completely sane, since the textures are
                 // only requested after the GL creation.
                 let gl = self.gl.as_ref().unwrap();
@@ -100,7 +100,7 @@ impl Component for FieldEditor {
 
                 false
             },
-            Msg::ImageErrors((_image, panel_kind)) => {
+            Msg::TextureError((_image, panel_kind)) => {
                 console::log_1(&JsValue::from(format!("image for {:?} failed to load.", panel_kind)));
 
                 self.panel_textures[panel_kind] = Texture::Error;
@@ -212,8 +212,8 @@ impl FieldEditor {
             if let Some(src) = src {
                 *image = Texture::Pending(ImageService::new(
                     src,
-                    self.link.callback(Msg::ImageLoads),
-                    self.link.callback(Msg::ImageErrors),
+                    self.link.callback(Msg::TextureLoad),
+                    self.link.callback(Msg::TextureError),
                     kind,
                 ))
             }

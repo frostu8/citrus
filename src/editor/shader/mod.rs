@@ -37,9 +37,19 @@ impl BasicShader {
     ) {
         let color_tex = self.program.solid_color_texture(color);
 
+        self.tex_rect(&color_tex, x, y, width, height);
+    }
+
+    /// Draws a texture to the screen as a rectangle.
+    pub fn tex_rect(
+        &self,
+        tex: &GLTexture,
+        x: f32, y: f32,
+        width: f32, height: f32,
+    ) {
         self.program.draw_rect(
             &self.transform,
-            &color_tex,
+            &tex,
             x, y, width, height,
         );
     }

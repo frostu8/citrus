@@ -19,7 +19,6 @@ use web_sys::{
     WebGlRenderingContext as WebGl,
     WebGlUniformLocation,
 };
-use na::{Vector2, Matrix3};
 
 use std::ops::Deref;
 
@@ -62,6 +61,15 @@ impl GL {
                 WebGl::UNSIGNED_BYTE,
                 image,
             ).unwrap();
+
+            // setup mipmaps
+            if is_power_two(image.width()) && is_power_two(image.height()) {
+                self.0.generate_mipmap(WebGl::TEXTURE_2D);
+            } else {
+                self.0.tex_parameteri(WebGl::TEXTURE_2D, WebGl::TEXTURE_WRAP_S, WebGl::CLAMP_TO_EDGE as i32);
+                self.0.tex_parameteri(WebGl::TEXTURE_2D, WebGl::TEXTURE_WRAP_T, WebGl::CLAMP_TO_EDGE as i32);
+                self.0.tex_parameteri(WebGl::TEXTURE_2D, WebGl::TEXTURE_MIN_FILTER, WebGl::LINEAR as i32);
+            }
 
             texture
         } else {
@@ -184,6 +192,14 @@ impl From<&WebGl> for GL {
     }
 }
 
+impl Clone for GL {
+    fn clone(&self) -> Self {
+        let new_ref = self.clone_ref();
+
+        GL(new_ref)
+    }
+}
+
 impl Deref for GL {
     type Target = WebGl;
 
@@ -257,6 +273,10 @@ impl Deref for GLUniformLocation {
     }
 }
 
+fn is_power_two(value: u32) -> bool {
+    value & (value - 1) == 0
+}
+
 // Here is some constant implementations
 macro_rules! reexport {
     ($const:ident) => {
@@ -272,3 +292,4 @@ impl GL {
     reexport!(STATIC_DRAW);
     reexport!(TRIANGLE_STRIP);
 }
+

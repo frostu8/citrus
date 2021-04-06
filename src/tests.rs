@@ -1,5 +1,4 @@
 use std::cell::Cell;
-use std::rc::Rc;
 
 use crate::enum_map::EnumMap;
 use citrus_common::PanelKind;
@@ -52,4 +51,13 @@ pub fn test_enum_map_safety() {
     
     assert!(result.is_err());
     assert!(drop_count.get() > 0);
+}
+
+#[test]
+pub fn test_enum_map_iter() {
+    let panel_map = EnumMap::<PanelKind, u8>::new(|kind| kind as u8);
+
+    for (kind, value) in panel_map.iter() {
+        println!("{:?}: {:X}", kind, value);
+    }
 }

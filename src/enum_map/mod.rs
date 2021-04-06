@@ -1,3 +1,7 @@
+mod iter;
+
+pub use iter::*;
+
 use std::ops::{Index, IndexMut};
 use std::mem::MaybeUninit;
 
@@ -17,6 +21,16 @@ impl<E: EnumKey<T>, T> EnumMap<E, T> {
                 init(E::from_usize(index))
             }),
         }
+    }
+
+    /// Creates a new iterator over the elements of [`EnumMap`].
+    pub fn iter(&self) -> Iter<E, T> {
+        Iter::new(self)
+    }
+
+    /// Creates a new mutable iterator over the elements of [`EnumMap`].
+    pub fn iter_mut(&mut self) -> IterMut<E, T> {
+        IterMut::new(self)
     }
 }
 
@@ -78,7 +92,7 @@ pub trait Storage<T> {
     fn as_ref(&self) -> &[T];
     fn as_mut(&mut self) -> &mut [T];
     
-    fn init<F>(init: F) -> Self
+    fn init<F>(initializer: F) -> Self
     where F: FnMut(usize) -> T; 
 }
 
@@ -105,12 +119,13 @@ impl<T, const N: usize> Storage<T> for [T; N] {
 
         impl<T> Drop for Guard<T> {
             fn drop(&mut self) {
-                // SAFETY: as long as the guard is used properly, this is sound
-                unsafe {
-                    std::ptr::drop_in_place(std::slice::from_raw_parts_mut(
-                        self.ptr_start, self.initialized,
-                    ));
-                }
+                let initialized_part = std::ptr::slice_from_raw_parts_mut(
+                    self.ptr_start, self.initialized,
+                );
+
+                // SAFETY: this is sound, because initialized_part will only
+                // have the initialized types.
+                unsafe { std::ptr::drop_in_place(initialized_part); }
             }
         }
 
@@ -152,3 +167,4 @@ impl<T, const N: usize> Storage<T> for [T; N] {
         }
     }
 }
+

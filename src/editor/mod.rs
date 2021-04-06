@@ -2,13 +2,18 @@ pub mod assets;
 pub mod shader;
 
 use wasm_bindgen::{JsValue, JsCast as _};
-use web_sys::{console, HtmlCanvasElement, WebGlRenderingContext as GL};
+use web_sys::{console, HtmlCanvasElement, HtmlImageElement, WebGlRenderingContext as WebGl};
 use yew::prelude::*;
 use yew::services::render::{RenderTask, RenderService};
 use yew::services::resize::{ResizeTask, ResizeService};
+use crate::services::image::{ImageService, ImageTask};
 
+use assets::PanelMap;
 use shader::BasicShader;
-use crate::gl::Color;
+
+use citrus_common::PanelKind;
+use crate::gl::{Color, GLTexture, GL};
+
 
 pub struct FieldEditor {
     link: ComponentLink<Self>,
@@ -17,6 +22,7 @@ pub struct FieldEditor {
     canvas: NodeRef,
     gl: Option<GL>,
     basic_shader: Option<BasicShader>,
+    panel_textures: PanelMap<Texture>,
 
     // callback things
     _render_request: Option<RenderTask>,
@@ -25,7 +31,16 @@ pub struct FieldEditor {
 
 pub enum Msg {
     Render(f64),
+    ImageLoads((HtmlImageElement, PanelKind)),
+    ImageErrors((HtmlImageElement, PanelKind)),
     Resize,
+}
+
+pub enum Texture {
+    Ready(GLTexture),
+    Pending(ImageTask),
+    Error,
+    Null,
 }
 
 impl Component for FieldEditor {
@@ -38,6 +53,7 @@ impl Component for FieldEditor {
             canvas: NodeRef::default(),
             gl: None,
             basic_shader: None,
+            panel_textures: PanelMap::new(|_| Texture::Null),
             _render_request: None,
             _resize_request: None,
         }
@@ -51,6 +67,9 @@ impl Component for FieldEditor {
 
         self.build_basic_shader();
 
+        // request for textures
+        self.request_panel_images();
+
         if first_render {
             self.request_animation_frame();
             self.request_resize_event();
@@ -61,13 +80,33 @@ impl Component for FieldEditor {
         match msg {
             Msg::Render(timestamp) => {
                 // render the field editor
-                self.render(timestamp);
+                if self.textures_loaded() {
+                    self.render(timestamp);
+                }
 
                 // setup another request
                 self.request_animation_frame();
 
                 false
             },
+            Msg::ImageLoads((image, panel_kind)) => {
+                // NOTE: this call is completely sane, since the textures are
+                // only requested after the GL creation.
+                let gl = self.gl.as_ref().unwrap();
+
+                self.panel_textures[panel_kind] = Texture::Ready(
+                    gl.create_texture(&image),
+                );
+
+                false
+            },
+            Msg::ImageErrors((_image, panel_kind)) => {
+                console::log_1(&JsValue::from(format!("image for {:?} failed to load.", panel_kind)));
+
+                self.panel_textures[panel_kind] = Texture::Error;
+
+                false
+            }
             Msg::Resize => {
                 // rerender
                 true
@@ -98,8 +137,13 @@ impl FieldEditor {
             None => return,
         };
 
-        basic.fill_rect(
-            Color::BLUE,
+        let encounter = match &self.panel_textures[PanelKind::Encounter] {
+            Texture::Ready(tex) => tex,
+            _ => panic!(),
+        };
+
+        basic.tex_rect(
+            encounter,
             0., 0.,
             150., 150.,
         );
@@ -115,7 +159,7 @@ impl FieldEditor {
         // get gl context
         match canvas.get_context("webgl").ok().flatten() {
             Some(gl) => {
-                self.gl = Some(gl.dyn_into().unwrap());
+                self.gl = Some(gl.dyn_into::<WebGl>().unwrap().into());
             },
             None => {
                 canvas.set_inner_text(
@@ -135,7 +179,7 @@ impl FieldEditor {
 
         Self::update_size(&gl, &canvas);
 
-        let basic_shader = match BasicShader::new(gl) {
+        let basic_shader = match BasicShader::new(gl.clone()) {
             Ok(p) => p,
             Err(err) => {
                 // print pretty error to console.
@@ -155,6 +199,36 @@ impl FieldEditor {
         canvas.set_height(height as u32);
 
         gl.viewport(0, 0, width, height);
+    }
+
+    fn request_panel_images(&mut self) {
+        for (kind, image) in self.panel_textures.iter_mut() {
+            let src = match kind {
+                PanelKind::Encounter => Some("./img/encounter.png"),
+                _ => None,
+            };
+
+            // make request
+            if let Some(src) = src {
+                *image = Texture::Pending(ImageService::new(
+                    src,
+                    self.link.callback(Msg::ImageLoads),
+                    self.link.callback(Msg::ImageErrors),
+                    kind,
+                ))
+            }
+        }
+    }
+
+    fn textures_loaded(&self) -> bool {
+        self.panel_textures.iter()
+            .all(|(_, status)| {
+                match status {
+                    Texture::Ready(_) => true,
+                    Texture::Null => true,
+                    _ => false,
+                }
+            })
     }
 
     fn request_resize_event(&mut self) {

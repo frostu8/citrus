@@ -30,6 +30,17 @@ module.exports = {
     ],
   },
   plugins: [
+    new CopyPlugin(
+      {
+        patterns: [
+          {
+            from: './img',
+            to: path.resolve(dist, 'img'),
+            context: './web',
+          }
+        ],
+      }
+    ),
     new HtmlPlugin({
       title: 'Citrus',
     }),

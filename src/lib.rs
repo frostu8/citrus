@@ -3,6 +3,7 @@ extern crate nalgebra as na;
 pub mod editor;
 pub mod enum_map;
 pub mod gl;
+pub mod services;
 
 #[cfg(test)]
 mod tests;

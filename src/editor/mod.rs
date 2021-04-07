@@ -2,7 +2,7 @@ pub mod assets;
 pub mod view;
 
 use wasm_bindgen::JsValue;
-use web_sys::{console, HtmlCanvasElement, HtmlImageElement};
+use web_sys::{console, HtmlCanvasElement, HtmlImageElement, MouseEvent};
 use yew::prelude::*;
 use yew::services::render::{RenderTask, RenderService};
 use yew::services::resize::{ResizeTask, ResizeService};
@@ -34,6 +34,7 @@ pub struct FieldEditor {
 
 pub enum Msg {
     Render(f64),
+    MouseMove(MouseEvent),
     TextureLoad((HtmlImageElement, PanelKind)),
     TextureError((HtmlImageElement, PanelKind)),
     Resize,
@@ -99,6 +100,11 @@ impl Component for FieldEditor {
 
                 false
             },
+            Msg::MouseMove(ev) => {
+                // handle mouse move if mouse is down
+
+                false
+            }
             Msg::TextureLoad((image, panel_kind)) => {
                 // NOTE: this call is completely sane, since the textures are
                 // only requested after the GL creation.
@@ -171,21 +177,22 @@ impl FieldEditor {
         }
     }
 
+    fn canvas(&self) -> HtmlCanvasElement {
+        self.canvas.cast::<HtmlCanvasElement>().unwrap()
+    }
+
     fn gl_invalidated(&self) -> bool {
         self.gl.as_ref().map(|gl| gl.is_context_lost()).unwrap_or(true)
     }
 
     fn build_gl(&mut self) {
-        let canvas = self.canvas.cast::<HtmlCanvasElement>().unwrap();
-
         // get gl context
-        match GL::new(canvas) {
+        match GL::new(self.canvas()) {
             Some(gl) => {
                 self.gl = Some(gl);
             },
             None => {
-                let canvas = self.canvas.cast::<HtmlCanvasElement>().unwrap();
-                canvas.set_inner_text(
+                self.canvas().set_inner_text(
                     "OpenGL is not supported on your browser."
                 );
             }
@@ -221,7 +228,7 @@ impl FieldEditor {
     }
 
     fn update_size(&mut self) {
-        let canvas = self.canvas.cast::<HtmlCanvasElement>().unwrap();
+        let canvas = self.canvas();
 
         self.canvas_size = Vector2::new(
             canvas.client_width() as f32,

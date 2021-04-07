@@ -5,18 +5,42 @@ use crate::enum_map::EnumMap;
 
 pub type PanelMap<T> = EnumMap<PanelKind, T>;
 
+macro_rules! match_img {
+    { $init:ident, $( $pattern:pat => $lit:literal ),* } => {
+        match $init {
+            $( $pattern => concat!("./img/", $lit), )*
+            _ => return None,
+        }
+    }
+}
+
 /// Gets the image sources of a panel kind.
 ///
 /// Returns `None` if a panel does not have an image representation.
 pub fn panel_source(kind: PanelKind) -> Option<&'static str> {
     Some(
-        match kind {
-            Home => "./img/home.png",
-            Encounter => "./img/encounter.png",
-            Draw => "./img/draw.png",
-            Bonus => "./img/bonus.png",
-            Drop => "./img/drop.png",
-            _ => return None,
+        match_img! {
+            kind,
+            Neutral => "neutral.png",
+            Home => "home.png",
+            Encounter => "encounter.png",
+            Draw => "draw.png",
+            Bonus => "bonus.png",
+            Drop => "drop.png",
+            Warp => "warp.png",
+            Draw2x => "draw2x.png",
+            Bonus2x => "bonus2x.png",
+            Drop2x => "drop2x.png",
+            Encounter2x => "encounter2x.png",
+            Move => "move.png",
+            Move2x => "move2x.png",
+            WarpMove => "warpmove.png",
+            WarpMove2x => "warpmove2x.png",
+            Ice => "ice.png",
+            Heal => "heal.png",
+            Heal2x => "heal2x.png",
+            Damage => "damage.png",
+            Damage2x => "damage2x.png"
         }
     )
 }

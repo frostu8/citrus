@@ -34,9 +34,9 @@ module.exports = {
       {
         patterns: [
           {
-            from: './img',
-            to: path.resolve(dist, 'img'),
-            context: './web',
+            from: './img/*.png',
+            to: dist,
+            context: './web/',
           }
         ],
       }

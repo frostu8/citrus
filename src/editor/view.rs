@@ -1,6 +1,11 @@
-use citrus_common::{Field, Panel, PanelKind};
+use std::cmp::max;
 
-use na::{Matrix4, Vector2, Vector3};
+use citrus_common::{
+    field::{Field, PanelMut, PanelRef},
+    Panel, PanelKind,
+};
+
+use na::{Matrix4, Vector2, Vector3, Vector4};
 
 /// A view of a field.
 pub struct EditorView {
@@ -33,7 +38,7 @@ impl EditorView {
     /// Translates the view.
     pub fn pan(&mut self, pan: Vector2<f32>) {
         self.view = self.view
-            .append_translation(&Vector3::new(pan.x, pan.y, 0.0));
+            .append_translation(&Vector3::new(pan.x, pan.y, 0.));
     }
 
     /// Translates and scales the field so that it rests entirely within a
@@ -60,4 +65,142 @@ impl EditorView {
                 .append_translation(&Vector3::new(translate.x, translate.y, 0.));
         }
     }
+
+    /// Gets a panel reference using a mouse position as a reference, scaling
+    /// the field if needed.
+    pub fn flex_mut(&mut self, pos: &Vector2<f32>) -> PanelMut {
+        let (x, y) = self.flex(pos);
+
+        self.field.get_mut(x, y)
+    }
+
+    /// Collapses the field into the smallest bounding box it can.
+    pub fn collapse(&mut self) {
+        // get bounds
+        let left_bound = self.field.columns_iter()
+            .position(|mut x| !x.all(empty))
+            .unwrap_or(0);
+        let right_bound = self.field.columns_iter()
+            .rposition(|mut x| !x.all(empty))
+            .map(|x| x+1)
+            .unwrap_or(0);
+        let top_bound = self.field.rows_iter()
+            .position(|mut x| !x.all(empty))
+            .unwrap_or(0);
+        let bottom_bound = self.field.rows_iter()
+            .rposition(|mut x| !x.all(empty))
+            .map(|x| x+1)
+            .unwrap_or(0);
+
+        // resize field to fit
+        self.resize_field(
+            (right_bound - left_bound, bottom_bound - top_bound)
+                .map(|x| x as isize),
+            (left_bound, top_bound)
+                .map(|x| -(x as isize)),
+        );
+    }
+
+    fn field_size(&self) -> (isize, isize) {
+        (self.field.width(), self.field.height()).map(|x| x as isize)
+    }
+
+    fn flex(&mut self, pos: &Vector2<f32>) -> (usize, usize) {
+        let pos = self.pos(pos);
+
+        if in_bounds(&self.field, pos) {
+            pos.map(|x| x as usize)
+        } else {
+            // flex the field
+            // get an offset of the field
+            let offset = pos.map(|x| max(-x, 0));
+
+            // get resize
+            let resize = pos.apply(self.field_size(), |x, s| max(x+1 - s, 0));
+            let resize = resize.add(offset);
+
+            let new_size = self.field_size().add(resize);
+
+            // do resize
+            self.resize_field(new_size, offset);
+
+            // there should be no negative indices anymore
+            pos.add(offset.map(|x| x as isize)).map(|x| x as usize)
+        }
+    }
+
+    fn resize_field(&mut self, size: (isize, isize), offset: (isize, isize)) {
+        debug_assert!(size.0 >= 0, "size cannot be negative");
+        debug_assert!(size.1 >= 0, "size cannot be negative");
+
+        let field = &self.field;
+        let field = Field::new_iter(
+            (0..size.1).map(move |y| {
+                (0..size.0).map(move |x| {
+                    let pos = (x,y).sub(offset);
+
+                    if in_bounds(field, pos) {
+                        let (x,y) = pos.map(|x| x as usize);
+                        field.get(x, y).clone()
+                    } else {
+                        Panel::EMPTY
+                    }
+                })
+            })
+        );
+        self.field = field;
+
+        // translate field
+        self.view = self.view
+            .prepend_translation(&-Vector3::new(offset.0 as f32, offset.1 as f32, 0.));
+    }
+
+    fn pos(&self, pos: &Vector2<f32>) -> (isize, isize) {
+        let inverse = self.view.try_inverse().unwrap() * Vector4::new(pos.x, pos.y, 1., 1.);
+
+        (inverse.x, inverse.y).map(|x| x.floor() as isize)
+    }
+}
+
+trait TupleExt<T>:
+where Self: Sized {
+    fn map<F, U>(self, mapper: F) -> (U, U)
+    where F: FnMut(T) -> U;
+
+    fn apply<F, V, U>(self, other: (V, V), apply: F) -> (U, U)
+    where F: FnMut(T, V) -> U;
+
+    fn add(self, other: (T, T)) -> (T::Output, T::Output)
+    where T: std::ops::Add {
+        self.apply(other, std::ops::Add::add)
+    }
+
+    fn sub(self, other: (T, T)) -> (T::Output, T::Output)
+    where T: std::ops::Sub {
+        self.apply(other, std::ops::Sub::sub)
+    }
+}
+
+impl<T> TupleExt<T> for (T, T) {
+    fn map<F, U>(self, mut mapper: F) -> (U, U)
+    where F: FnMut(T) -> U {
+        (mapper(self.0), mapper(self.1))
+    }
+
+    fn apply<F, V, U>(self, other: (V, V), mut apply: F) -> (U, U)
+    where F: FnMut(T, V) -> U {
+        (apply(self.0, other.0), apply(self.1, other.1))
+    }
+}
+
+fn in_bounds(field: &Field, pos: (isize, isize)) -> bool {
+    if pos.0 >= 0 && pos.1 >= 0 {
+        (pos.0 as usize) < field.width() && (pos.1 as usize) < field.height()
+    } else {
+        false
+    }
+}
+
+fn empty(panel: PanelRef) -> bool {
+    panel.kind == PanelKind::Empty
 }

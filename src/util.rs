@@ -4,6 +4,8 @@ use na::{Vector2, Vector3};
 pub struct MouseEvent {
     pos: Vector2<f32>,
     buttons: MouseButtons,
+    button: MouseButtons,
+    modifiers: MouseModifiers,
 }
 
 impl MouseEvent {
@@ -18,6 +20,14 @@ impl MouseEvent {
     pub fn buttons(&self) -> MouseButtons {
         self.buttons
     }
+
+    pub fn button(&self) -> MouseButtons {
+        self.button
+    }
+
+    pub fn modifiers(&self) -> MouseModifiers {
+        self.modifiers
+    }
 }
 
 impl Default for MouseEvent {
@@ -25,6 +35,8 @@ impl Default for MouseEvent {
         MouseEvent {
             pos: na::zero(),
             buttons: MouseButtons(0),
+            button: MouseButtons(0),
+            modifiers: MouseModifiers(0),
         }
     }
 }
@@ -34,6 +46,8 @@ impl From<web_sys::MouseEvent> for MouseEvent {
         MouseEvent {
             pos: Vector2::new(e.offset_x() as f32, e.offset_y() as f32),
             buttons: MouseButtons(e.buttons()),
+            button: MouseButtons(1 << e.button()),
+            modifiers: (&e).into(),
         }
     }
 }
@@ -51,4 +65,27 @@ impl MouseButtons {
     pub fn right(&self) -> bool {
         self.0 & 2 > 0
     }
+}
+
+#[derive(Clone, Copy)]
+pub struct MouseModifiers(u8);
+
+impl MouseModifiers {
+    const SHIFT: MouseModifiers = MouseModifiers(1);
+
+    pub fn shift(&self) -> bool {
+        self.0 & Self::SHIFT.0 > 0
+    }
+}
+
+impl From<&web_sys::MouseEvent> for MouseModifiers {
+    fn from(e: &web_sys::MouseEvent) -> MouseModifiers {
+        MouseModifiers(
+            boolean(e.shift_key()) & Self::SHIFT.0
+        )
+    }
+}
+
+fn boolean(b: bool) -> u8 {
+    if b { u8::MAX } else { u8::MIN }
 }

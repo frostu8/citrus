@@ -11,7 +11,7 @@ use crate::services::image::{ImageService, ImageTask};
 use assets::PanelMap;
 use view::EditorView;
 
-use citrus_common::PanelKind;
+use citrus_common::{PanelKind, Panel};
 use na::Vector2;
 use crate::gl::{GLTexture, GL, GlError};
 use crate::gl::shader::canvas::CanvasShader;
@@ -39,6 +39,7 @@ pub struct FieldEditor {
 pub enum Msg {
     Render(f64),
     MouseMove(web_sys::MouseEvent),
+    MouseUp(web_sys::MouseEvent),
     ContextMenu(web_sys::MouseEvent),
     TextureLoad((HtmlImageElement, PanelKind)),
     TextureError((HtmlImageElement, PanelKind)),
@@ -102,8 +103,6 @@ impl Component for FieldEditor {
 
                 // setup another request
                 self.request_animation_frame();
-
-                false
             },
             Msg::MouseMove(ev) => {
                 let ev: MouseEvent = ev.into();
@@ -115,13 +114,25 @@ impl Component for FieldEditor {
 
                 // set as last mouse event
                 self.mouse_last = ev;
+            },
+            Msg::MouseUp(ev) => {
+                let ev: MouseEvent = ev.into();
 
-                false
+                // handle panel placement if mouse is down
+                if ev.button().left() {
+                    if ev.modifiers().shift() {
+                        // delete tile
+                        *self.view.flex_mut(&ev.pos()) = Panel::EMPTY;
+                        self.view.collapse();
+                    } else {
+                        // place current tile
+                        self.view.flex_mut(&ev.pos()).kind = PanelKind::Draw;
+                        self.view.collapse();
+                    }
+                }
             },
             Msg::ContextMenu(ev) => {
                 ev.prevent_default();
-
-                false
             },
             Msg::TextureLoad((image, panel_kind)) => {
                 // NOTE: this call is completely sane, since the textures are
@@ -131,21 +142,19 @@ impl Component for FieldEditor {
                 self.panel_textures[panel_kind] = Texture::Ready(
                     gl.create_texture(&image),
                 );
-
-                false
             },
             Msg::TextureError((_image, panel_kind)) => {
                 console::log_1(&JsValue::from(format!("image for {:?} failed to load.", panel_kind)));
 
                 self.panel_textures[panel_kind] = Texture::Error;
-
-                false
             }
             Msg::Resize => {
                 // rerender
-                true
+                return true;
             },
-        }
+        };
+
+        false
     }
 
     fn view(&self) -> Html {
@@ -154,6 +163,7 @@ impl Component for FieldEditor {
                 <canvas class="editor-canvas"
                         oncontextmenu=self.link.callback(Msg::ContextMenu)
                         onmousemove=self.link.callback(Msg::MouseMove)
+                        onmouseup=self.link.callback(Msg::MouseUp)
                         ref=self.canvas.clone()>
                 </canvas>
             </div>
@@ -182,13 +192,12 @@ impl FieldEditor {
 
         for (x, y) in self.view.field.iter() {
             let panel = self.view.field.get(x, y);
+            let (x, y) = (x as f32, y as f32);
 
             let panel_tex = match &self.panel_textures[panel.kind] {
                 Texture::Ready(tex) => tex,
                 _ => continue,
             };
-
-            let (x, y) = (x as f32, y as f32);
 
             basic.draw_image(
                 panel_tex,

@@ -22,10 +22,10 @@ impl CanvasShader {
     /// Rebuilds the projection matrix.
     ///
     /// Should be called whenever the canvas is resized.
-    pub fn rebuild_projection(&mut self, width: u32, height: u32) {
+    pub fn rebuild_projection(&mut self, proj: &na::Vector2<f32>) {
         self.projection = Orthographic3::new(
-            0., width as f32, 
-            height as f32, 0., 
+            0., proj.x, 
+            proj.y, 0., 
             -1., 1.
         );
     }

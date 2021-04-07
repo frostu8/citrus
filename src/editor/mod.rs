@@ -12,6 +12,7 @@ use assets::PanelMap;
 use view::EditorView;
 
 use citrus_common::PanelKind;
+use na::Vector2;
 use crate::gl::{GLTexture, GL, GlError};
 use crate::gl::shader::canvas::CanvasShader;
 
@@ -21,6 +22,7 @@ pub struct FieldEditor {
 
     // canvas things
     canvas: NodeRef,
+    canvas_size: Vector2<f32>,
     gl: Option<GL>,
     basic_shader: Option<CanvasShader>,
     panel_textures: PanelMap<Texture>,
@@ -51,8 +53,9 @@ impl Component for FieldEditor {
     fn create(_props: Self::Properties, link: ComponentLink<Self>) -> Self {
         FieldEditor { 
             link,
-            view: EditorView::default(),
+            view: EditorView::new(),
             canvas: NodeRef::default(),
+            canvas_size: na::zero(),
             gl: None,
             basic_shader: None,
             panel_textures: PanelMap::new(|_| Texture::Null),
@@ -76,6 +79,8 @@ impl Component for FieldEditor {
         self.update_size();
 
         if first_render {
+            self.view.center(&self.canvas_size);
+
             self.request_animation_frame();
             self.request_resize_event();
         }
@@ -216,19 +221,21 @@ impl FieldEditor {
     }
 
     fn update_size(&mut self) {
+        let canvas = self.canvas.cast::<HtmlCanvasElement>().unwrap();
+
+        self.canvas_size = Vector2::new(
+            canvas.client_width() as f32,
+            canvas.client_height() as f32,
+        );
+
         if let Some(gl) = self.gl.as_ref() {
-            let canvas = self.canvas.cast::<HtmlCanvasElement>().unwrap();
+            canvas.set_width(self.canvas_size.x as u32);
+            canvas.set_height(self.canvas_size.y as u32);
 
-            let width = canvas.client_width() as u32;
-            let height = canvas.client_height() as u32;
-
-            canvas.set_width(width);
-            canvas.set_height(height);
-
-            gl.viewport(0, 0, width as i32, height as i32);
+            gl.viewport(0, 0, self.canvas_size.x as i32, self.canvas_size.y as i32);
 
             if let Some(basic) = self.basic_shader.as_mut() {
-                basic.rebuild_projection(width, height);
+                basic.rebuild_projection(&self.canvas_size);
             }
         }
     }

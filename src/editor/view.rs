@@ -30,6 +30,12 @@ impl EditorView {
         }
     }
 
+    /// Translates the view.
+    pub fn pan(&mut self, pan: Vector2<f32>) {
+        self.view = self.view
+            .append_translation(&Vector3::new(pan.x, pan.y, 0.0));
+    }
+
     /// Translates and scales the field so that it rests entirely within a
     /// bounding box.
     pub fn center(&mut self, bb: &Vector2<f32>) {

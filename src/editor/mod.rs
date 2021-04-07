@@ -2,7 +2,7 @@ pub mod assets;
 pub mod view;
 
 use wasm_bindgen::JsValue;
-use web_sys::{console, HtmlCanvasElement, HtmlImageElement, MouseEvent};
+use web_sys::{console, HtmlCanvasElement, HtmlImageElement};
 use yew::prelude::*;
 use yew::services::render::{RenderTask, RenderService};
 use yew::services::resize::{ResizeTask, ResizeService};
@@ -15,10 +15,14 @@ use citrus_common::PanelKind;
 use na::Vector2;
 use crate::gl::{GLTexture, GL, GlError};
 use crate::gl::shader::canvas::CanvasShader;
+use crate::util::MouseEvent;
 
 pub struct FieldEditor {
     link: ComponentLink<Self>,
     view: EditorView,
+
+    // event things
+    mouse_last: MouseEvent,
 
     // canvas things
     canvas: NodeRef,
@@ -34,7 +38,8 @@ pub struct FieldEditor {
 
 pub enum Msg {
     Render(f64),
-    MouseMove(MouseEvent),
+    MouseMove(web_sys::MouseEvent),
+    ContextMenu(web_sys::MouseEvent),
     TextureLoad((HtmlImageElement, PanelKind)),
     TextureError((HtmlImageElement, PanelKind)),
     Resize,
@@ -55,6 +60,7 @@ impl Component for FieldEditor {
         FieldEditor { 
             link,
             view: EditorView::new(),
+            mouse_last: MouseEvent::default(),
             canvas: NodeRef::default(),
             canvas_size: na::zero(),
             gl: None,
@@ -82,8 +88,7 @@ impl Component for FieldEditor {
         if first_render {
             self.view.center(&self.canvas_size);
 
-            self.request_animation_frame();
-            self.request_resize_event();
+            self.setup_callbacks();
         }
     }
 
@@ -101,10 +106,23 @@ impl Component for FieldEditor {
                 false
             },
             Msg::MouseMove(ev) => {
+                let ev: MouseEvent = ev.into();
+
                 // handle mouse move if mouse is down
+                if ev.buttons().right() {
+                    self.view.pan(ev.pos() - self.mouse_last.pos());
+                }
+
+                // set as last mouse event
+                self.mouse_last = ev;
 
                 false
-            }
+            },
+            Msg::ContextMenu(ev) => {
+                ev.prevent_default();
+
+                false
+            },
             Msg::TextureLoad((image, panel_kind)) => {
                 // NOTE: this call is completely sane, since the textures are
                 // only requested after the GL creation.
@@ -133,7 +151,10 @@ impl Component for FieldEditor {
     fn view(&self) -> Html {
         html! {
             <div class="editor-container">
-                <canvas class="editor-canvas" ref=self.canvas.clone()>
+                <canvas class="editor-canvas"
+                        oncontextmenu=self.link.callback(Msg::ContextMenu)
+                        onmousemove=self.link.callback(Msg::MouseMove)
+                        ref=self.canvas.clone()>
                 </canvas>
             </div>
         }
@@ -279,6 +300,11 @@ impl FieldEditor {
                     _ => false,
                 }
             })
+    }
+
+    fn setup_callbacks(&mut self) {
+        self.request_resize_event();
+        self.request_animation_frame();
     }
 
     fn request_resize_event(&mut self) {

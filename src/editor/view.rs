@@ -43,6 +43,16 @@ impl EditorView {
             .append_translation(&Vector3::new(pan.x, pan.y, 0.));
     }
 
+    /// Scales the view by a point.
+    pub fn scale(&mut self, factor: f32, at: Vector2<f32>) {
+        let at = Vector3::new(at.x, at.y, 0.);
+
+        self.view = self.view
+            .append_translation(&-at)
+            .append_scaling(factor)
+            .append_translation(&at);
+    }
+
     /// Translates and scales the field so that it rests entirely within a
     /// bounding box.
     pub fn center(&mut self, bb: &Vector2<f32>) {

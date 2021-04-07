@@ -1,5 +1,7 @@
 use na::{Vector2, Vector3};
 
+use std::ops::Deref;
+
 /// An owned version of [`MouseEvent`].
 pub struct MouseEvent {
     pos: Vector2<f32>,
@@ -41,13 +43,13 @@ impl Default for MouseEvent {
     }
 }
 
-impl From<web_sys::MouseEvent> for MouseEvent {
-    fn from(e: web_sys::MouseEvent) -> MouseEvent {
+impl From<&web_sys::MouseEvent> for MouseEvent {
+    fn from(e: &web_sys::MouseEvent) -> MouseEvent {
         MouseEvent {
             pos: Vector2::new(e.offset_x() as f32, e.offset_y() as f32),
             buttons: MouseButtons(e.buttons()),
             button: MouseButtons(1 << e.button()),
-            modifiers: (&e).into(),
+            modifiers: e.into(),
         }
     }
 }
@@ -86,6 +88,45 @@ impl From<&web_sys::MouseEvent> for MouseModifiers {
     }
 }
 
+/// An owned version of [`WheelEvent`].
+pub struct WheelEvent {
+    sup: MouseEvent,
+    delta_y: f32,
+}
+
+impl WheelEvent {
+    pub fn delta_y(&self) -> f32 {
+        self.delta_y
+    }
+}
+
+impl Deref for WheelEvent {
+    type Target = MouseEvent;
+
+    fn deref(&self) -> &MouseEvent {
+        &self.sup
+    }
+}
+
+impl Default for WheelEvent {
+    fn default() -> WheelEvent {
+        WheelEvent {
+            sup: MouseEvent::default(),
+            delta_y: 0.0,
+        }
+    }
+}
+
+impl From<&web_sys::WheelEvent> for WheelEvent {
+    fn from(e: &web_sys::WheelEvent) -> WheelEvent {
+        WheelEvent {
+            sup: e.deref().into(),
+            delta_y: e.delta_y() as f32,
+        }
+    }
+}
+
 fn boolean(b: bool) -> u8 {
     if b { u8::MAX } else { u8::MIN }
 }
+

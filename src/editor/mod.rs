@@ -16,7 +16,7 @@ use citrus_common::{PanelKind, Panel};
 use na::Vector2;
 use crate::gl::{GLTexture, GL, GlError};
 use crate::gl::shader::canvas::CanvasShader;
-use crate::util::MouseEvent;
+use crate::util::{MouseEvent, WheelEvent};
 
 pub struct FieldEditor {
     link: ComponentLink<Self>,
@@ -41,6 +41,7 @@ pub enum Msg {
     Render(f64),
     MouseMove(web_sys::MouseEvent),
     MouseUp(web_sys::MouseEvent),
+    MouseWheel(web_sys::WheelEvent),
     ContextMenu(web_sys::MouseEvent),
     TextureLoad((HtmlImageElement, PanelKind)),
     TextureError((HtmlImageElement, PanelKind)),
@@ -107,7 +108,7 @@ impl Component for FieldEditor {
                 self.request_animation_frame();
             },
             Msg::MouseMove(ev) => {
-                let ev: MouseEvent = ev.into();
+                let ev: MouseEvent = (&ev).into();
 
                 // handle mouse move if mouse is down
                 if ev.buttons().right() {
@@ -118,7 +119,7 @@ impl Component for FieldEditor {
                 self.mouse_last = ev;
             },
             Msg::MouseUp(ev) => {
-                let ev: MouseEvent = ev.into();
+                let ev: MouseEvent = (&ev).into();
 
                 // handle panel placement if mouse is down
                 if ev.button().left() {
@@ -133,6 +134,12 @@ impl Component for FieldEditor {
                     }
                 }
             },
+            Msg::MouseWheel(ev) => {
+                let ev: WheelEvent = (&ev).into();
+
+                // handle scroll? ez
+                self.view.scale(1. - (ev.delta_y() * -0.01), ev.pos());
+            }
             Msg::ContextMenu(ev) => {
                 ev.prevent_default();
             },
@@ -171,6 +178,7 @@ impl Component for FieldEditor {
                         oncontextmenu=self.link.callback(Msg::ContextMenu)
                         onmousemove=self.link.callback(Msg::MouseMove)
                         onmouseup=self.link.callback(Msg::MouseUp)
+                        onwheel=self.link.callback(Msg::MouseWheel)
                         ref=self.canvas.clone()>
                 </canvas>
             </div>

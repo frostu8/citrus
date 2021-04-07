@@ -1,7 +1,7 @@
 use crate::gl::*;
 use crate::gl::shader::Shader;
 
-use na::{Vector2, Matrix3, Matrix4, Vector3, Orthographic3};
+use na::{Matrix4, Vector3, Orthographic3};
 
 const VERT_SHADER: &'static str = include_str!("./canvas.vert");
 const FRAG_SHADER: &'static str = include_str!("./canvas.frag");
@@ -105,9 +105,6 @@ impl CanvasShaderProgram {
             program,
             gl,
         })
-    }
-
-    pub fn rebuild_projection(&mut self) {
     }
 
     pub fn clear(&self) {

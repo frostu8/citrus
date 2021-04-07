@@ -1,8 +1,8 @@
 pub mod assets;
 pub mod view;
 
-use wasm_bindgen::{JsValue, JsCast as _};
-use web_sys::{console, HtmlCanvasElement, HtmlImageElement, WebGlRenderingContext as WebGl};
+use wasm_bindgen::JsValue;
+use web_sys::{console, HtmlCanvasElement, HtmlImageElement};
 use yew::prelude::*;
 use yew::services::render::{RenderTask, RenderService};
 use yew::services::resize::{ResizeTask, ResizeService};
@@ -136,7 +136,7 @@ impl Component for FieldEditor {
 
 impl FieldEditor {
     /// Renders the field editor to the attached canvas.
-    pub fn render(&mut self, timestamp: f64) {
+    pub fn render(&mut self, _timestamp: f64) {
         let basic = match self.basic_shader.as_mut() {
             Some(basic) => basic,
             None => return,

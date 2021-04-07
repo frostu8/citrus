@@ -38,6 +38,11 @@ impl CanvasShader {
             x, y, width, height,
         );
     }
+
+    /// Needs to be called every resize.
+    pub fn rebuild_projection(&mut self) {
+        self.program.rebuild_projection();
+    }
 }
 
 impl Shader for CanvasShader {

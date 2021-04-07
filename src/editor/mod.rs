@@ -61,16 +61,17 @@ impl Component for FieldEditor {
         // rebuild gl if gl is invalidated
         if self.gl_invalidated() {
             self.build_gl();
+            self.build_basic_shader();
+
+            if first_render {
+                // request for textures
+                self.request_panel_images();
+            }
         }
 
-        self.build_basic_shader();
+        self.update_size();
 
         if first_render {
-            // request for textures
-            // we don't have to rebuild the textures, unlike the shaders
-            // (I don't know why)
-            self.request_panel_images();
-
             self.request_animation_frame();
             self.request_resize_event();
         }
@@ -192,8 +193,6 @@ impl FieldEditor {
             None => return,
         };
 
-        Self::update_size(&gl, &canvas);
-
         let basic_shader = match gl.shader() {
             Ok(p) => p,
             Err(err) => {
@@ -206,14 +205,22 @@ impl FieldEditor {
         self.basic_shader = Some(basic_shader);
     }
 
-    fn update_size(gl: &GL, canvas: &HtmlCanvasElement) {
-        let width = canvas.client_width();
-        let height = canvas.client_height();
+    fn update_size(&mut self) {
+        if let Some(gl) = self.gl.as_ref() {
+            let canvas = self.canvas.cast::<HtmlCanvasElement>().unwrap();
 
-        canvas.set_width(width as u32);
-        canvas.set_height(height as u32);
+            let width = canvas.client_width();
+            let height = canvas.client_height();
 
-        gl.viewport(0, 0, width, height);
+            canvas.set_width(width as u32);
+            canvas.set_height(height as u32);
+
+            gl.viewport(0, 0, width, height);
+
+            if let Some(basic) = self.basic_shader.as_mut() {
+                basic.rebuild_projection();
+            }
+        }
     }
 
     fn request_panel_images(&mut self) {

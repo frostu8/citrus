@@ -89,7 +89,7 @@ struct CanvasShaderProgram {
 impl CanvasShaderProgram {
     pub fn new(gl: GL) -> Result<CanvasShaderProgram, GlError> {
         gl.enable(GL::BLEND);
-        gl.blend_func(GL::SRC_ALPHA, GL::ONE_MINUS_SRC_ALPHA);
+        gl.blend_func_separate(GL::SRC_ALPHA, GL::ONE_MINUS_SRC_ALPHA, GL::ONE, GL::ONE_MINUS_SRC_ALPHA);
 
         let program = gl.link_program(
             gl.compile_vert_shader(VERT_SHADER)?,
@@ -108,7 +108,7 @@ impl CanvasShaderProgram {
     }
 
     pub fn clear(&self) {
-        self.gl.clear_color(1., 1., 1., 1.);
+        self.gl.clear_color(1., 1., 1., 0.);
         self.gl.clear(GL::COLOR_BUFFER_BIT);
     }
 

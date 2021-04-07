@@ -72,14 +72,14 @@ impl GL {
                 image,
             ).unwrap();
 
-            // setup mipmaps
+            // setup texture things
             if is_power_two(image.width()) && is_power_two(image.height()) {
                 self.0.generate_mipmap(WebGl::TEXTURE_2D);
-            } else {
-                self.0.tex_parameteri(WebGl::TEXTURE_2D, WebGl::TEXTURE_WRAP_S, WebGl::CLAMP_TO_EDGE as i32);
-                self.0.tex_parameteri(WebGl::TEXTURE_2D, WebGl::TEXTURE_WRAP_T, WebGl::CLAMP_TO_EDGE as i32);
-                self.0.tex_parameteri(WebGl::TEXTURE_2D, WebGl::TEXTURE_MIN_FILTER, WebGl::LINEAR as i32);
             }
+
+            self.0.tex_parameteri(WebGl::TEXTURE_2D, WebGl::TEXTURE_WRAP_S, WebGl::CLAMP_TO_EDGE as i32);
+            self.0.tex_parameteri(WebGl::TEXTURE_2D, WebGl::TEXTURE_WRAP_T, WebGl::CLAMP_TO_EDGE as i32);
+            self.0.tex_parameteri(WebGl::TEXTURE_2D, WebGl::TEXTURE_MIN_FILTER, WebGl::LINEAR as i32);
 
             texture
         } else {
@@ -292,6 +292,7 @@ impl GL {
     reexport!(TRIANGLE_STRIP);
     reexport!(BLEND);
     reexport!(SRC_ALPHA);
+    reexport!(ONE);
     reexport!(ONE_MINUS_SRC_ALPHA);
     reexport!(COLOR_BUFFER_BIT);
 }

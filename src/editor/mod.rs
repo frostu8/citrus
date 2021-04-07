@@ -1,4 +1,5 @@
 pub mod assets;
+pub mod view;
 
 use wasm_bindgen::{JsValue, JsCast as _};
 use web_sys::{console, HtmlCanvasElement, HtmlImageElement, WebGlRenderingContext as WebGl};
@@ -8,13 +9,15 @@ use yew::services::resize::{ResizeTask, ResizeService};
 use crate::services::image::{ImageService, ImageTask};
 
 use assets::PanelMap;
+use view::EditorView;
 
 use citrus_common::PanelKind;
-use crate::gl::{GLTexture, GL};
+use crate::gl::{GLTexture, GL, GlError};
 use crate::gl::shader::canvas::CanvasShader;
 
 pub struct FieldEditor {
     link: ComponentLink<Self>,
+    view: EditorView,
 
     // canvas things
     canvas: NodeRef,
@@ -48,6 +51,7 @@ impl Component for FieldEditor {
     fn create(_props: Self::Properties, link: ComponentLink<Self>) -> Self {
         FieldEditor { 
             link,
+            view: EditorView::default(),
             canvas: NodeRef::default(),
             gl: None,
             basic_shader: None,
@@ -138,31 +142,28 @@ impl FieldEditor {
             None => return,
         };
 
-        let encounter = match &self.panel_textures[PanelKind::Encounter] {
-            Texture::Ready(tex) => tex,
-            _ => panic!(),
-        };
+        // clear
+        basic.clear();
+        
+        // setup view matrix
+        basic.transform = self.view.view;
 
-        basic.draw_image(
-            encounter,
-            0., 0.,
-            150., 150.,
-        );
-        basic.draw_image(
-            encounter,
-            150., 0.,
-            150., 150.,
-        );
-        basic.draw_image(
-            encounter,
-            0., 150.,
-            150., 150.,
-        );
-        basic.draw_image(
-            encounter,
-            150., 150.,
-            150., 150.,
-        );
+        for (x, y) in self.view.field.iter() {
+            let panel = self.view.field.get(x, y);
+
+            let panel_tex = match &self.panel_textures[panel.kind] {
+                Texture::Ready(tex) => tex,
+                _ => continue,
+            };
+
+            let (x, y) = (x as f32, y as f32);
+
+            basic.draw_image(
+                panel_tex,
+                x, y,
+                1., 1.,
+            );
+        }
     }
 
     fn gl_invalidated(&self) -> bool {
@@ -173,11 +174,12 @@ impl FieldEditor {
         let canvas = self.canvas.cast::<HtmlCanvasElement>().unwrap();
 
         // get gl context
-        match canvas.get_context("webgl").ok().flatten() {
+        match GL::new(canvas) {
             Some(gl) => {
-                self.gl = Some(gl.dyn_into::<WebGl>().unwrap().into());
+                self.gl = Some(gl);
             },
             None => {
+                let canvas = self.canvas.cast::<HtmlCanvasElement>().unwrap();
                 canvas.set_inner_text(
                     "OpenGL is not supported on your browser."
                 );
@@ -186,8 +188,6 @@ impl FieldEditor {
     }
 
     fn build_basic_shader(&mut self) {
-        let canvas = self.canvas.cast::<HtmlCanvasElement>().unwrap();
-
         let gl = match self.gl.as_ref() {
             Some(gl) => gl,
             None => return,
@@ -197,7 +197,17 @@ impl FieldEditor {
             Ok(p) => p,
             Err(err) => {
                 // print pretty error to console.
-                console::error_1(&JsValue::from_str(&err.to_string()));
+                match err {
+                    GlError::ShaderCompile(error) => {
+                        console::error_1(&JsValue::from_str("shader compile errors:"));
+                        for error in error.errors() {
+                            console::error_1(&JsValue::from_str(error));
+                        }
+                    },
+                    err => {
+                        console::error_1(&JsValue::from_str(&err.to_string()));
+                    }
+                }
                 panic!("failed to compile shaders");
             },
         };
@@ -209,16 +219,16 @@ impl FieldEditor {
         if let Some(gl) = self.gl.as_ref() {
             let canvas = self.canvas.cast::<HtmlCanvasElement>().unwrap();
 
-            let width = canvas.client_width();
-            let height = canvas.client_height();
+            let width = canvas.client_width() as u32;
+            let height = canvas.client_height() as u32;
 
-            canvas.set_width(width as u32);
-            canvas.set_height(height as u32);
+            canvas.set_width(width);
+            canvas.set_height(height);
 
-            gl.viewport(0, 0, width, height);
+            gl.viewport(0, 0, width as i32, height as i32);
 
             if let Some(basic) = self.basic_shader.as_mut() {
-                basic.rebuild_projection();
+                basic.rebuild_projection(width, height);
             }
         }
     }
@@ -226,6 +236,10 @@ impl FieldEditor {
     fn request_panel_images(&mut self) {
         for (kind, image) in self.panel_textures.iter_mut() {
             let src = match kind {
+                PanelKind::Home => Some("./img/home.png"),
+                PanelKind::Bonus => Some("./img/bonus.png"),
+                PanelKind::Draw => Some("./img/draw.png"),
+                PanelKind::Drop => Some("./img/drop.png"),
                 PanelKind::Encounter => Some("./img/encounter.png"),
                 _ => None,
             };

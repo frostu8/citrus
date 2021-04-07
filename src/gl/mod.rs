@@ -15,6 +15,7 @@ pub use color::*;
 use wasm_bindgen::JsCast as _;
 use web_sys::{
     HtmlImageElement,
+    HtmlCanvasElement,
     WebGlBuffer,
     WebGlShader, 
     WebGlProgram, 
@@ -29,20 +30,27 @@ use std::ops::Deref;
 ///
 /// Many references can be made to this object thanks to interior mutability,
 /// *not that we have a choice in that matter*.
-pub struct GL(WebGl);
+pub struct GL(WebGl, HtmlCanvasElement);
 
 impl GL {
     /// Creates a new GL context.
-    ///
-    /// This is explicit; use `GL`'s into implementation.
-    pub fn new(context: WebGl) -> GL {
-        GL(context)
+    pub fn new(canvas: HtmlCanvasElement) -> Option<GL> {
+        canvas.get_context("webgl").ok().flatten()
+            .map(|webgl| {
+                GL(webgl.unchecked_into(), canvas)
+            })
     }
 
     /// Gets a copied reference to the inner [`WebGlRenderingContext`] object.
     pub fn clone_ref(&self) -> WebGl {
         // SAFETY: the inner type is `WebGl`, so this will always be `WebGl`.
         self.0.clone().unchecked_into()
+    }
+
+    fn clone_canvas_ref(&self) -> HtmlCanvasElement {
+        // SAFETY: the inner type is `HtmlCanvasElement`, so this will always 
+        // be `WebGl`.
+        self.1.clone().unchecked_into()
     }
 
     /// Starts a new draw command.
@@ -188,23 +196,12 @@ impl GL {
     }
 }
 
-impl From<WebGl> for GL {
-    fn from(inner: WebGl) -> GL {
-        GL(inner)
-    }
-}
-
-impl From<&WebGl> for GL {
-    fn from(inner_ref: &WebGl) -> GL {
-        GL(inner_ref.clone().unchecked_into())
-    }
-}
-
 impl Clone for GL {
     fn clone(&self) -> Self {
         let new_ref = self.clone_ref();
+        let canvas_ref = self.clone_canvas_ref();
 
-        GL(new_ref)
+        GL(new_ref, canvas_ref)
     }
 }
 
@@ -300,5 +297,9 @@ impl GL {
     reexport!(STATIC_DRAW);
     reexport!(STREAM_DRAW);
     reexport!(TRIANGLE_STRIP);
+    reexport!(BLEND);
+    reexport!(SRC_ALPHA);
+    reexport!(ONE_MINUS_SRC_ALPHA);
+    reexport!(COLOR_BUFFER_BIT);
 }
 

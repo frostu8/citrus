@@ -2,7 +2,7 @@ use super::*;
 
 use js_sys::Float32Array;
 
-use na::Matrix3;
+use na::Matrix4;
 
 /// A draw command.
 ///
@@ -55,14 +55,14 @@ where A: AttributeLink {
         }
     }
 
-    /// Sets a uniform using a [`Matrix3`].
-    pub fn uniform_mat3<'a, 'b>(
+    /// Sets a uniform using a [`Matrix4`].
+    pub fn uniform_mat4<'a, 'b>(
         self,
-        matrix: &'a Matrix3<f32>,
+        matrix: &'a Matrix4<f32>,
         uniform: &'b GLUniformLocation,
-    ) -> DrawCommand<Matrix3Bind<'a, 'b, A>> {
+    ) -> DrawCommand<Matrix4Bind<'a, 'b, A>> {
         DrawCommand {
-            attribute: Matrix3Bind {
+            attribute: Matrix4Bind {
                 parent: self.attribute,
                 matrix,
                 uniform,
@@ -197,18 +197,18 @@ where P: AttributeLink {
     }
 }
 
-/// Binds a [`Matrix3`] to a uniform.
-pub struct Matrix3Bind<'a, 'b, P>
+/// Binds a [`Matrix4`] to a uniform.
+pub struct Matrix4Bind<'a, 'b, P>
 where P: AttributeLink {
     parent: P,
-    matrix: &'a Matrix3<f32>,
+    matrix: &'a Matrix4<f32>,
     uniform: &'b GLUniformLocation,
 }
 
-impl<'a, 'b, P> AttributeLink for Matrix3Bind<'a, 'b, P>
+impl<'a, 'b, P> AttributeLink for Matrix4Bind<'a, 'b, P>
 where P: AttributeLink {
     fn attribute(&self, gl: &WebGl) {
-        gl.uniform_matrix3fv_with_f32_array(
+        gl.uniform_matrix4fv_with_f32_array(
             Some(self.uniform),
             false,
             self.matrix.as_slice(),

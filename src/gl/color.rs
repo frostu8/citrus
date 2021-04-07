@@ -7,6 +7,7 @@ impl Color {
     pub const RED: Color = Color::rgb(u8::MAX, u8::MIN, u8::MIN);
     pub const GREEN: Color = Color::rgb(u8::MIN, u8::MAX, u8::MIN);
     pub const BLUE: Color = Color::rgb(u8::MIN, u8::MIN, u8::MAX);
+    pub const ALPHA: Color = Color::rgba(u8::MIN, u8::MIN, u8::MIN, u8::MIN);
 
     pub const fn rgb(r: u8, g: u8, b: u8) -> Color {
         Color::rgba(r, g, b, u8::MAX)

@@ -5,7 +5,9 @@
 //! do, but there you go.
 
 pub mod color;
+pub mod command;
 pub mod error;
+pub mod shader;
 
 pub use error::*;
 pub use color::*;
@@ -13,6 +15,7 @@ pub use color::*;
 use wasm_bindgen::JsCast as _;
 use web_sys::{
     HtmlImageElement,
+    WebGlBuffer,
     WebGlShader, 
     WebGlProgram, 
     WebGlTexture, 
@@ -40,6 +43,11 @@ impl GL {
     pub fn clone_ref(&self) -> WebGl {
         // SAFETY: the inner type is `WebGl`, so this will always be `WebGl`.
         self.0.clone().unchecked_into()
+    }
+
+    /// Starts a new draw command.
+    pub fn start_draw(&self) -> command::DrawCommand<()> {
+        command::DrawCommand::<()>::new(self.clone_ref())
     }
 
     /// Create a texture from an image element.
@@ -290,6 +298,7 @@ impl GL {
     reexport!(ARRAY_BUFFER);
     reexport!(FLOAT);
     reexport!(STATIC_DRAW);
+    reexport!(STREAM_DRAW);
     reexport!(TRIANGLE_STRIP);
 }
 

@@ -1,5 +1,4 @@
 pub mod assets;
-pub mod shader;
 
 use wasm_bindgen::{JsValue, JsCast as _};
 use web_sys::{console, HtmlCanvasElement, HtmlImageElement, WebGlRenderingContext as WebGl};
@@ -9,11 +8,10 @@ use yew::services::resize::{ResizeTask, ResizeService};
 use crate::services::image::{ImageService, ImageTask};
 
 use assets::PanelMap;
-use shader::BasicShader;
 
 use citrus_common::PanelKind;
-use crate::gl::{Color, GLTexture, GL};
-
+use crate::gl::{GLTexture, GL};
+use crate::gl::shader::canvas::CanvasShader;
 
 pub struct FieldEditor {
     link: ComponentLink<Self>,
@@ -21,7 +19,7 @@ pub struct FieldEditor {
     // canvas things
     canvas: NodeRef,
     gl: Option<GL>,
-    basic_shader: Option<BasicShader>,
+    basic_shader: Option<CanvasShader>,
     panel_textures: PanelMap<Texture>,
 
     // callback things
@@ -67,10 +65,12 @@ impl Component for FieldEditor {
 
         self.build_basic_shader();
 
-        // request for textures
-        self.request_panel_images();
-
         if first_render {
+            // request for textures
+            // we don't have to rebuild the textures, unlike the shaders
+            // (I don't know why)
+            self.request_panel_images();
+
             self.request_animation_frame();
             self.request_resize_event();
         }
@@ -142,9 +142,24 @@ impl FieldEditor {
             _ => panic!(),
         };
 
-        basic.tex_rect(
+        basic.draw_image(
             encounter,
             0., 0.,
+            150., 150.,
+        );
+        basic.draw_image(
+            encounter,
+            150., 0.,
+            150., 150.,
+        );
+        basic.draw_image(
+            encounter,
+            0., 150.,
+            150., 150.,
+        );
+        basic.draw_image(
+            encounter,
+            150., 150.,
             150., 150.,
         );
     }
@@ -179,7 +194,7 @@ impl FieldEditor {
 
         Self::update_size(&gl, &canvas);
 
-        let basic_shader = match BasicShader::new(gl.clone()) {
+        let basic_shader = match gl.shader() {
             Ok(p) => p,
             Err(err) => {
                 // print pretty error to console.

@@ -1,3 +1,5 @@
+#![recursion_limit="256"]
+
 extern crate nalgebra as na;
 
 pub mod editor;

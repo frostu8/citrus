@@ -11,10 +11,11 @@ use na::{Matrix4, Vector2, Vector3, Vector4};
 pub struct EditorView {
     pub view: Matrix4<f32>,
     pub field: Field,
+    pub selected: PanelKind,
 }
 
 impl EditorView {
-    pub fn new() -> EditorView {
+    pub fn new(selected: PanelKind) -> EditorView {
         const EMPTY: Panel = Panel::EMPTY;
         const HOME: Panel = Panel::new(PanelKind::Home);
         const BONUS: Panel = Panel::new(PanelKind::Bonus);
@@ -32,6 +33,7 @@ impl EditorView {
                 &[BONUS,     EMPTY, EMPTY,     EMPTY,     EMPTY, DROP],
                 &[HOME,      DROP,  ENCOUNTER, DRAW,      BONUS, HOME],
             ]),
+            selected,
         }
     }
 

@@ -1,3 +1,15 @@
+$bg-light-color: #ffbe5c;
+$scrollbar-color: #ffe0b8;
+
+@mixin scrollbar-style($bg) {
+    scrollbar-color: $scrollbar-color $bg;
+    scrollbar-width: thin;
+
+    &::-webkit-scrollbar {
+        color: $scrollbar-color;
+    }
+}
+
 html, body {
     margin: 0;
     width: 100%;
@@ -13,4 +25,41 @@ html, body {
 .editor-canvas {
     width: 100%;
     height: 100%;
+}
+
+.panel-selector-area {
+    position: absolute;
+    height: 100%;
+    width: 7em;
+}
+
+.panel-selector {
+    @include scrollbar-style($bg-light-color);
+
+    position: absolute;
+    width: 8em;
+    height: 100%;
+    overflow-y: scroll;
+    overflow-x: hidden;
+
+    background-color: $bg-light-color;
+
+    .panel-button {
+        display: block;
+        width: 6em;
+        margin: 1em auto 0;
+
+        img {
+            width: 100%;
+            height: 100%;
+        }
+
+        &:hover {
+            transform: scale(1.1);
+        }
+
+        &.selected {
+            transform: scale(1.1);
+        }
+    }
 }

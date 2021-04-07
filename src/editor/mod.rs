@@ -1,4 +1,5 @@
 pub mod assets;
+pub mod panel;
 pub mod view;
 
 use wasm_bindgen::JsValue;
@@ -43,6 +44,7 @@ pub enum Msg {
     ContextMenu(web_sys::MouseEvent),
     TextureLoad((HtmlImageElement, PanelKind)),
     TextureError((HtmlImageElement, PanelKind)),
+    PanelKindSelect(PanelKind),
     Resize,
 }
 
@@ -60,7 +62,7 @@ impl Component for FieldEditor {
     fn create(_props: Self::Properties, link: ComponentLink<Self>) -> Self {
         FieldEditor { 
             link,
-            view: EditorView::new(),
+            view: EditorView::new(default_panel()),
             mouse_last: MouseEvent::default(),
             canvas: NodeRef::default(),
             canvas_size: na::zero(),
@@ -126,7 +128,7 @@ impl Component for FieldEditor {
                         self.view.collapse();
                     } else {
                         // place current tile
-                        self.view.flex_mut(&ev.pos()).kind = PanelKind::Draw;
+                        self.view.flex_mut(&ev.pos()).kind = self.view.selected;
                         self.view.collapse();
                     }
                 }
@@ -147,7 +149,10 @@ impl Component for FieldEditor {
                 console::log_1(&JsValue::from(format!("image for {:?} failed to load.", panel_kind)));
 
                 self.panel_textures[panel_kind] = Texture::Error;
-            }
+            },
+            Msg::PanelKindSelect(kind) => {
+                self.view.selected = kind;
+            },
             Msg::Resize => {
                 // rerender
                 return true;
@@ -160,6 +165,8 @@ impl Component for FieldEditor {
     fn view(&self) -> Html {
         html! {
             <div class="editor-container">
+                <panel::PanelSelector onselect=self.link.callback(Msg::PanelKindSelect) 
+                                      selected=default_panel() />
                 <canvas class="editor-canvas"
                         oncontextmenu=self.link.callback(Msg::ContextMenu)
                         onmousemove=self.link.callback(Msg::MouseMove)
@@ -279,14 +286,7 @@ impl FieldEditor {
 
     fn request_panel_images(&mut self) {
         for (kind, image) in self.panel_textures.iter_mut() {
-            let src = match kind {
-                PanelKind::Home => Some("./img/home.png"),
-                PanelKind::Bonus => Some("./img/bonus.png"),
-                PanelKind::Draw => Some("./img/draw.png"),
-                PanelKind::Drop => Some("./img/drop.png"),
-                PanelKind::Encounter => Some("./img/encounter.png"),
-                _ => None,
-            };
+            let src = assets::panel_source(kind);
 
             // make request
             if let Some(src) = src {
@@ -329,4 +329,8 @@ impl FieldEditor {
 
         self._render_request = Some(handle);
     }
+}
+
+pub fn default_panel() -> PanelKind {
+    PanelKind::Neutral
 }

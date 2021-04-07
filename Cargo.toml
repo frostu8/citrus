@@ -36,6 +36,8 @@ wee_alloc = { version = "0.4", optional = true }
 version = "0.3"
 features = [
     "Element",
+    "HtmlElement",
+    "CssStyleDeclaration",
     "HtmlCanvasElement",
     "HtmlImageElement",
     "WebGlBuffer",

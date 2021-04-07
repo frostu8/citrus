@@ -5,6 +5,22 @@ use crate::enum_map::EnumMap;
 
 pub type PanelMap<T> = EnumMap<PanelKind, T>;
 
+/// Gets the image sources of a panel kind.
+///
+/// Returns `None` if a panel does not have an image representation.
+pub fn panel_source(kind: PanelKind) -> Option<&'static str> {
+    Some(
+        match kind {
+            Home => "./img/home.png",
+            Encounter => "./img/encounter.png",
+            Draw => "./img/draw.png",
+            Bonus => "./img/bonus.png",
+            Drop => "./img/drop.png",
+            _ => return None,
+        }
+    )
+}
+
 // `EnumKey` implementation
 // Orphan rules mean we can't generate this with a macro, so we have to
 // redefine all of this. That's fine, I had to do this like this in the

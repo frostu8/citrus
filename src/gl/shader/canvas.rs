@@ -62,12 +62,12 @@ impl CanvasShader {
 }
 
 impl Shader for CanvasShader {
-    fn link(gl: GL, width: u32, height: u32) -> Result<CanvasShader, GlError> {
+    fn link(gl: GL) -> Result<CanvasShader, GlError> {
         CanvasShaderProgram::new(gl)
             .map(|program| CanvasShader {
                 projection: Orthographic3::new(
-                    0., width as f32, 
-                    height as f32, 0., 
+                    0., 1., 
+                    1., 0., 
                     -1., 1.
                 ),
                 transform: Matrix4::identity(),

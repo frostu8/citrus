@@ -30,14 +30,14 @@ use std::ops::Deref;
 ///
 /// Many references can be made to this object thanks to interior mutability,
 /// *not that we have a choice in that matter*.
-pub struct GL(WebGl, HtmlCanvasElement);
+pub struct GL(WebGl);
 
 impl GL {
     /// Creates a new GL context.
     pub fn new(canvas: HtmlCanvasElement) -> Option<GL> {
         canvas.get_context("webgl").ok().flatten()
             .map(|webgl| {
-                GL(webgl.unchecked_into(), canvas)
+                GL(webgl.unchecked_into())
             })
     }
 
@@ -45,12 +45,6 @@ impl GL {
     pub fn clone_ref(&self) -> WebGl {
         // SAFETY: the inner type is `WebGl`, so this will always be `WebGl`.
         self.0.clone().unchecked_into()
-    }
-
-    fn clone_canvas_ref(&self) -> HtmlCanvasElement {
-        // SAFETY: the inner type is `HtmlCanvasElement`, so this will always 
-        // be `WebGl`.
-        self.1.clone().unchecked_into()
     }
 
     /// Starts a new draw command.
@@ -199,9 +193,8 @@ impl GL {
 impl Clone for GL {
     fn clone(&self) -> Self {
         let new_ref = self.clone_ref();
-        let canvas_ref = self.clone_canvas_ref();
 
-        GL(new_ref, canvas_ref)
+        GL(new_ref)
     }
 }
 

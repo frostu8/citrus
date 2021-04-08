@@ -71,7 +71,7 @@ where A: AttributeLink {
     }
 
     /// Executes the command.
-    pub fn draw_triangle_strip(self, count: usize) {
+    pub fn draw_triangle_strip(&mut self, count: usize) {
         // execute attributes
         self.attribute.attribute(&self.gl);
 

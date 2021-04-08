@@ -1,7 +1,5 @@
 use yew::prelude::*;
 use yew::callback::Callback;
-use yew::services::timeout::{TimeoutTask, TimeoutService};
-use web_sys::HtmlElement;
 
 use citrus_common::PanelKind;
 
@@ -13,10 +11,8 @@ pub struct PanelSelector {
     props: Props,
 
     panel_images: PanelMap<NodeRef>,
-    container: NodeRef,
 
-    pos_lerp: f32,
-    _lerp_request: Option<TimeoutTask>,
+    pos: f32,
 }
 
 #[derive(Clone, Properties)]
@@ -51,7 +47,6 @@ impl PartialEq for Props {
 }
 
 pub enum Msg {
-    Lerp(f32),
     MouseEnter,
     MouseLeave,
     Select(PanelKind),
@@ -67,54 +62,31 @@ impl Component for PanelSelector {
             props,
 
             panel_images: PanelMap::new(|_| NodeRef::default()),
-            container: NodeRef::default(),
 
             // start retracted
-            pos_lerp: 1f32,
-            _lerp_request: None,
+            pos: -1.,
         }
     }
 
     fn rendered(&mut self, _first_render: bool) {
-        self.render_lerp();
     }
 
     fn update(&mut self, msg: Self::Message) -> ShouldRender {
         match msg {
-            Msg::Lerp(inc) => {
-                // update lerp
-                self.pos_lerp += inc;
-
-                if self.pos_lerp > 0. && self.pos_lerp < 1. {
-                    // continue lerp
-                    self.start_lerp(inc);
-                } else {
-                    // clamp
-                    self.pos_lerp = self.pos_lerp.clamp(0., 1.);
-                    // forcibly drop lerp request
-                    self._lerp_request = None;
-                }
-
-                self.render_lerp();
-            },
             Msg::MouseEnter => {
-                // setup timeout, replacing the old one, if it exists
-                // Thanks to Closures for being awesome and existing.
-                self.start_lerp(-0.08);
+                self.update_pos(0.)
             },
             Msg::MouseLeave => {
-                self.start_lerp(0.08);
+                self.update_pos(-1.)
             },
             Msg::Select(kind) => {
                 self.props.selected = kind;
                 // bubble
                 self.props.onselect.emit(kind);
                 // rerender
-                return true;
+                true
             }
         }
-
-        false
     }
 
     fn change(&mut self, props: Self::Properties) -> ShouldRender {
@@ -138,51 +110,44 @@ impl Component for PanelSelector {
 }
 
 impl PanelSelector {
-    pub fn render_lerp(&self) {
-        if let Some(container) = self.container.cast::<HtmlElement>() {
-            let width = container.client_width();
-
-            let _ = container.style().set_property(
-                "transform",
-                &format!(
-                    "translate({}px, 0px)",
-                    width as f32 * -self.pos_lerp,
-                ),
-            );
-        }
-    }
-
-    fn start_lerp(&mut self, dir: f32) {
-        self._lerp_request = Some(
-            TimeoutService::spawn(
-                std::time::Duration::from_millis(1000 / 60),
-                self.link.callback(move |_| Msg::Lerp(dir)),
-            )
-        )
+    fn update_pos(&mut self, pos: f32) -> ShouldRender {
+        self.pos = pos;
+        true
     }
 
     fn generate_buttons(&self) -> Html {
         html! {
-            <div class="panel-selector"
-                 ref=self.container.clone() >
-                { for self.panel_images.iter()
-                    .filter_map(|(kind, r)| {
-                        Some((assets::panel_source(kind)?, kind, r))
-                    })
-                    .map(|(src, kind, r)| {
-                        html! {
-                            <a class={ if kind == self.props.selected {
-                                   "panel-button selected"
-                               } else {
-                                   "panel-button"
-                               } } 
-                               href="#"
-                               onclick=self.link.callback(move |_| Msg::Select(kind))>
-                                <img ref=r.clone() src=src />
-                            </a>
-                        }
-                    }) }
+            <div class="panel-selector" style=self.get_style() >
+                { 
+                    for self.panel_images.iter()
+                        .filter_map(|(kind, r)| {
+                            Some((assets::panel_source(kind)?, kind, r))
+                        })
+                        .map(|(src, kind, r)| {
+                            html! {
+                                <a class={ if kind == self.props.selected {
+                                       "panel-button selected"
+                                   } else {
+                                       "panel-button"
+                                   } } 
+                                   href="#"
+                                   onclick=self.link.callback(move |_| Msg::Select(kind))>
+                                    <img ref=r.clone() src=src />
+                                </a>
+                            }
+                        }) 
+                }
             </div>
         }
+    }
+
+    fn get_style(&self) -> String {
+        format!(
+            concat!(
+                "transform: translate({}%, 0);",
+                "transition: transform 0.3s;",
+            ), 
+            self.pos * 100.
+        )
     }
 }

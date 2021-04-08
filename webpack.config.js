@@ -1,6 +1,7 @@
 const path = require("path");
 const CopyPlugin = require("copy-webpack-plugin");
 const HtmlPlugin = require("html-webpack-plugin");
+const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 const WasmPackPlugin = require("@wasm-tool/wasm-pack-plugin");
 
 const dist = path.resolve(__dirname, "dist");
@@ -8,7 +9,8 @@ const dist = path.resolve(__dirname, "dist");
 module.exports = {
   mode: "production",
   entry: {
-    index: "./web/index.js"
+    index: "./pkg/index.js",
+    indexCss: "./web/citrus.scss",
   },
   output: {
     path: dist,
@@ -22,7 +24,7 @@ module.exports = {
       {
         test: /\.s[ac]ss$/i,
         use: [
-          "style-loader",
+          MiniCssExtractPlugin.loader,
           "css-loader",
           "sass-loader",
         ],
@@ -53,6 +55,7 @@ module.exports = {
     new WasmPackPlugin({
       crateDirectory: __dirname,
     }),
+    new MiniCssExtractPlugin(),
   ],
   experiments: {
     asyncWebAssembly: true,

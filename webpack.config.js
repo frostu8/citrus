@@ -43,6 +43,12 @@ module.exports = {
     ),
     new HtmlPlugin({
       title: 'Citrus',
+      meta: {
+        "og:title": "Citrus",
+        "og:description": "A 100% Orange Juice field editor.",
+        "og:type": "website",
+        "og:locale": "en_US",
+      },
     }),
     new WasmPackPlugin({
       crateDirectory: __dirname,

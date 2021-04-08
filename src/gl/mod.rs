@@ -5,7 +5,6 @@
 //! do, but there you go.
 
 pub mod color;
-pub mod command;
 pub mod error;
 pub mod shader;
 
@@ -23,6 +22,8 @@ use web_sys::{
     WebGlRenderingContext as WebGl,
     WebGlUniformLocation,
 };
+
+use na::{Matrix4};
 
 use std::ops::Deref;
 
@@ -45,11 +46,6 @@ impl GL {
     pub fn clone_ref(&self) -> WebGl {
         // SAFETY: the inner type is `WebGl`, so this will always be `WebGl`.
         self.0.clone().unchecked_into()
-    }
-
-    /// Starts a new draw command.
-    pub fn start_draw(&self) -> command::DrawCommand<()> {
-        command::DrawCommand::<()>::new(self.clone_ref())
     }
 
     /// Create a texture from an image element.
@@ -205,6 +201,44 @@ impl GL {
             let err = self.0.get_program_info_log(&program).unwrap();
             Err(ProgramLinkError::new(err))
         }
+    }
+
+    /// Binds a [`GLBuffer`] to an attribute.
+    pub fn attribute_buffer(
+        &self,
+        buf: &GLBuffer,
+        pos: u32,
+    ) {
+        self.0.bind_buffer(GL::ARRAY_BUFFER, Some(buf));
+        self.0.vertex_attrib_pointer_with_i32(pos, 2, GL::FLOAT, false, 0, 0);
+        self.0.enable_vertex_attrib_array(pos);
+    }
+
+    /// Binds a [`GLTexture`] to a uniform location.
+    pub fn uniform_tex(
+        &self,
+        tex: &GLTexture,
+        pos: &GLUniformLocation,
+        bind: usize,
+    ) {
+        debug_assert!(bind < 32);
+
+        self.0.active_texture(bind as u32 + GL::TEXTURE0);
+        self.0.bind_texture(GL::TEXTURE_2D, Some(tex));
+        self.0.uniform1i(Some(pos), bind as i32);
+    }
+
+    /// Attributes a [`Matrix4`] to a uniform location.
+    pub fn uniform_mat4(
+        &self,
+        mat: &Matrix4<f32>,
+        pos: &GLUniformLocation
+    ) {
+        self.0.uniform_matrix4fv_with_f32_array(
+            Some(pos),
+            false,
+            mat.as_slice(),
+        );
     }
 }
 

@@ -215,7 +215,7 @@ impl FieldEditor {
         basic.clear();
         
         // setup view matrix
-        basic.transform = self.view.view;
+        let mut draw = basic.begin_draw(&self.view.view);
 
         for (x, y) in self.view.field.iter() {
             let panel = self.view.field.get(x, y);
@@ -226,8 +226,9 @@ impl FieldEditor {
                 _ => continue,
             };
 
-            basic.draw_image(
-                panel_tex,
+            draw.texture(panel_tex);
+
+            draw.draw_rect(
                 x, y,
                 1., 1.,
             );

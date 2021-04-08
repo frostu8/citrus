@@ -9,7 +9,6 @@ const FRAG_SHADER: &'static str = include_str!("./canvas.frag");
 /// GL shader that exposes basic "html canvas"-like functions.
 pub struct CanvasShader { 
     projection: Orthographic3<f32>,
-    pub transform: Matrix4<f32>,
     program: CanvasShaderProgram,
 }
 
@@ -30,34 +29,15 @@ impl CanvasShader {
         );
     }
 
-    /// Fills a rectangle with a color.
-    pub fn fill_rect(
-        &self,
-        color: Color,
-        x: f32, y: f32,
-        width: f32, height: f32,
-    ) {
-        let color_tex = self.program.gl.solid_color_texture(color);
-
-        self.draw_image(&color_tex, x, y, width, height);
-    }
-
-    /// Draws a texture to the screen as a rectangle.
-    pub fn draw_image(
-        &self,
-        tex: &GLTexture,
-        x: f32, y: f32,
-        width: f32, height: f32,
-    ) {
-        self.program.draw_rect(
-            &tex,
-            &(
-                self.projection.into_inner() *
-                self.transform *
-                Matrix4::new_translation(&Vector3::new(x, y, 0.))
-                    .prepend_nonuniform_scaling(&Vector3::new(width, height, 1.))
-            ),
-        );
+    pub fn begin_draw<'a>(
+        &'a mut self, 
+        transform: &Matrix4<f32>,
+    ) -> DrawCommand<'a> {
+        DrawCommand::new(
+            &mut self.program, 
+            &self.projection,
+            transform,
+        )
     }
 }
 
@@ -70,7 +50,6 @@ impl Shader for CanvasShader {
                     1., 0., 
                     -1., 1.
                 ),
-                transform: Matrix4::identity(),
                 program,
             })
     }
@@ -128,30 +107,65 @@ impl CanvasShaderProgram {
         self.gl.clear_color(1., 1., 1., 0.);
         self.gl.clear(GL::COLOR_BUFFER_BIT);
     }
-
-    pub fn draw_rect(
-        &self, 
-        tex: &GLTexture,
-        mat: &Matrix4<f32>,
-    ) {
-        // use our program
-        self.gl.use_program(Some(&self.program));
-
-        // create vertex buffer
-        self.gl.start_draw()
-            // bind verts
-            .attribute_vec2(&self.unit_square, self.pos)
-            // bind our texture
-            .bind_texture0(
-                tex,
-                &self.texture,
-            )
-            // bind the world matrix
-            .uniform_mat4(
-                mat,
-                &self.world_transform,
-            )
-            .draw_triangle_strip(4);
-    }
 }
 
+/// Draw command for a [`CanvasShader`].
+///
+/// # Warning!
+/// Only one of these should exist at a time!
+pub struct DrawCommand<'a> {
+    projection: Orthographic3<f32>,
+    transform: Matrix4<f32>,
+    program: &'a mut CanvasShaderProgram,
+}
+
+impl<'a> DrawCommand<'a> {
+    fn new(
+        program: &'a mut CanvasShaderProgram, 
+        projection: &Orthographic3<f32>,
+        transform: &Matrix4<f32>,
+    ) -> DrawCommand<'a> {
+        // use program
+        program.gl.use_program(Some(&program.program));
+
+        // bind unit square verts
+        program.gl.attribute_buffer(
+            &program.unit_square,
+            program.pos,
+        );
+
+        DrawCommand { 
+            projection: *projection,
+            transform: *transform,
+            program,
+        }
+    }
+
+    pub fn texture(&mut self, tex: &GLTexture) {
+        self.program.gl.uniform_tex(
+            tex,
+            &self.program.texture,
+            0,
+        );
+    }
+    
+    pub fn draw_rect(
+        &mut self,
+        x: f32, y: f32,
+        width: f32, height: f32
+    ) {
+        // bind the world matrix
+        self.program.gl.uniform_mat4(
+            &(
+                self.projection.into_inner() *
+                self.transform *
+                Matrix4::new_translation(&Vector3::new(x, y, 0.))
+                    .prepend_nonuniform_scaling(&Vector3::new(width, height, 1.))
+            ),
+            &self.program.world_transform,
+        );
+
+        // draw
+        self.program.gl.draw_arrays(GL::TRIANGLE_STRIP, 0, 4);
+    }
+}

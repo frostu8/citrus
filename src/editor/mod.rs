@@ -143,11 +143,11 @@ impl Component for FieldEditor {
                 let scale = self.view.get_scale();
                 // cap scroll
                 if delta > 0. {
-                    if scale.x.max(scale.y) < Self::MAX_ZOOM {
+                    if scale.x.max(scale.y) < EditorView::MAX_ZOOM {
                         self.view.scale(1. + delta, ev.pos());
                     }
                 } else {
-                    if scale.x.max(scale.y) > Self::MIN_ZOOM {
+                    if scale.x.max(scale.y) > EditorView::MIN_ZOOM {
                         self.view.scale(1. + delta, ev.pos());
                     }
                 }
@@ -204,9 +204,6 @@ impl Component for FieldEditor {
 }
 
 impl FieldEditor {
-    pub const MAX_ZOOM: f32 = 256.;
-    pub const MIN_ZOOM: f32 = 32.;
-
     /// Renders the field editor to the attached canvas.
     pub fn render(&mut self, _timestamp: f64) {
         let basic = match self.basic_shader.as_mut() {

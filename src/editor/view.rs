@@ -15,6 +15,10 @@ pub struct EditorView {
 }
 
 impl EditorView {
+    pub const INITIAL_ZOOM: f32 = 128.;
+    pub const MAX_ZOOM: f32 = Self::INITIAL_ZOOM * 2.;
+    pub const MIN_ZOOM: f32 = Self::INITIAL_ZOOM / 4.;
+
     pub fn new(selected: PanelKind) -> EditorView {
         const EMPTY: Panel = Panel::EMPTY;
         const HOME: Panel = Panel::new(PanelKind::Home);
@@ -24,7 +28,7 @@ impl EditorView {
         const DROP: Panel = Panel::new(PanelKind::Drop);
 
         EditorView {
-            view: Matrix4::new_scaling(128.),
+            view: Matrix4::new_scaling(Self::INITIAL_ZOOM),
             field: Field::new_slice(&[
                 &[HOME,      BONUS, DRAW,      ENCOUNTER, DROP,  HOME],
                 &[DROP,      EMPTY, EMPTY,     EMPTY,     EMPTY, BONUS],
@@ -76,6 +80,7 @@ impl EditorView {
 
             let scale = room.component_div(&field_size);
             let scale = scale.x.min(scale.y);
+            let scale = scale.clamp(Self::MIN_ZOOM, Self::MAX_ZOOM);
 
             let field_bb = field_size * scale;
 

@@ -1,0 +1,33 @@
+name: Deploy
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    # check out git files
+    - uses: actions/checkout@v2
+    # get wasm-pack
+    - name: Install wasm-pack
+      uses: jetli/wasm-pack-action@v0.3.0
+    # get webpack and dependencies
+    - name: Get Webpack dependencies
+      run: npm install
+    # build using wasm-pack
+    - name: Build
+      run: npm run build
+    # deploy
+    - name: Deploy
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./dist

@@ -1,4 +1,7 @@
+mod serde;
+
 use std::cmp::max;
+use std::rc::Rc;
 
 use citrus_common::{
     field::{Field, PanelMut, PanelRef},
@@ -8,18 +11,26 @@ use citrus_common::{
 use na::{Matrix4, Vector2, Vector3, Vector4};
 
 /// A view of a field.
+///
+/// This uses [`Rc`] for cheap cloning, and [`Rc::make_mut`] to perform
+/// operations on its containing field.
+#[derive(Clone, ::serde::Serialize, ::serde::Deserialize)]
 pub struct EditorView {
     pub view: Matrix4<f32>,
-    pub field: Field,
+    #[serde(with = "serde::field")]
+    pub field: Rc<Field>,
+    #[serde(with = "serde::panel_kind")]
     pub selected: PanelKind,
 }
 
 impl EditorView {
+    pub const DEFAULT_PANEL: PanelKind = PanelKind::Neutral;
+
     pub const INITIAL_ZOOM: f32 = 128.;
     pub const MAX_ZOOM: f32 = Self::INITIAL_ZOOM * 2.;
     pub const MIN_ZOOM: f32 = Self::INITIAL_ZOOM / 4.;
 
-    pub fn new(selected: PanelKind) -> EditorView {
+    pub fn new_example() -> EditorView {
         const EMPTY: Panel = Panel::EMPTY;
         const HOME: Panel = Panel::new(PanelKind::Home);
         const BONUS: Panel = Panel::new(PanelKind::Bonus);
@@ -29,16 +40,23 @@ impl EditorView {
 
         EditorView {
             view: Matrix4::new_scaling(Self::INITIAL_ZOOM),
-            field: Field::new_slice(&[
-                &[HOME,      BONUS, DRAW,      ENCOUNTER, DROP,  HOME],
-                &[DROP,      EMPTY, EMPTY,     EMPTY,     EMPTY, BONUS],
-                &[ENCOUNTER, EMPTY, EMPTY,     EMPTY,     EMPTY, DRAW],
-                &[DRAW,      EMPTY, EMPTY,     EMPTY,     EMPTY, ENCOUNTER],
-                &[BONUS,     EMPTY, EMPTY,     EMPTY,     EMPTY, DROP],
-                &[HOME,      DROP,  ENCOUNTER, DRAW,      BONUS, HOME],
-            ]),
-            selected,
+            field: Rc::new(
+                Field::new_slice(&[
+                    &[HOME,      BONUS, DRAW,      ENCOUNTER, DROP,  HOME],
+                    &[DROP,      EMPTY, EMPTY,     EMPTY,     EMPTY, BONUS],
+                    &[ENCOUNTER, EMPTY, EMPTY,     EMPTY,     EMPTY, DRAW],
+                    &[DRAW,      EMPTY, EMPTY,     EMPTY,     EMPTY, ENCOUNTER],
+                    &[BONUS,     EMPTY, EMPTY,     EMPTY,     EMPTY, DROP],
+                    &[HOME,      DROP,  ENCOUNTER, DRAW,      BONUS, HOME],
+                ])
+            ),
+            selected: Self::DEFAULT_PANEL,
         }
+    }
+
+    /// Borrows the field as mutable.
+    pub fn field_mut(&mut self) -> &mut Field {
+        Rc::make_mut(&mut self.field)
     }
 
     /// Translates the view.
@@ -96,7 +114,7 @@ impl EditorView {
     pub fn flex_mut(&mut self, pos: &Vector2<f32>) -> PanelMut {
         let (x, y) = self.flex(pos);
 
-        self.field.get_mut(x, y)
+        self.field_mut().get_mut(x, y)
     }
 
     /// Collapses the field into the smallest bounding box it can.
@@ -173,7 +191,7 @@ impl EditorView {
                 })
             })
         );
-        self.field = field;
+        *Rc::make_mut(&mut self.field) = field;
 
         // translate field
         self.view = self.view
@@ -184,6 +202,24 @@ impl EditorView {
         let inverse = self.view.try_inverse().unwrap() * Vector4::new(pos.x, pos.y, 1., 1.);
 
         (inverse.x, inverse.y).map(|x| x.floor() as isize)
+    }
+}
+
+impl Default for EditorView {
+    fn default() -> EditorView {
+        EditorView {
+            field: Rc::new(Field::new()),
+            selected: EditorView::DEFAULT_PANEL,
+            view: Matrix4::identity(),
+        }
+    }
+}
+
+impl PartialEq for EditorView {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.field, &other.field)
+            & (self.selected == other.selected)
+            & (self.view == other.view)
     }
 }
 

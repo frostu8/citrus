@@ -10,7 +10,7 @@ use yew::services::resize::{ResizeTask, ResizeService};
 use crate::services::image::{ImageService, ImageTask};
 
 use assets::PanelMap;
-use view::EditorView;
+pub use view::EditorView;
 
 use citrus_common::{PanelKind, Panel};
 use na::Vector2;
@@ -20,7 +20,7 @@ use crate::util::{MouseEvent, WheelEvent};
 
 pub struct FieldEditor {
     link: ComponentLink<Self>,
-    view: EditorView,
+    props: Props,
 
     // event things
     mouse_last: MouseEvent,
@@ -35,6 +35,12 @@ pub struct FieldEditor {
     // callback things
     _render_request: Option<RenderTask>,
     _resize_request: Option<ResizeTask>,
+}
+
+#[derive(Clone, PartialEq, Properties)]
+pub struct Props {
+    pub view: EditorView,
+    pub onupdate: Callback<EditorView>,
 }
 
 pub enum Msg {
@@ -58,12 +64,12 @@ pub enum Texture {
 
 impl Component for FieldEditor {
     type Message = Msg;
-    type Properties = (); 
+    type Properties = Props; 
 
-    fn create(_props: Self::Properties, link: ComponentLink<Self>) -> Self {
+    fn create(props: Self::Properties, link: ComponentLink<Self>) -> Self {
         FieldEditor { 
             link,
-            view: EditorView::new(default_panel()),
+            props,
             mouse_last: MouseEvent::default(),
             canvas: NodeRef::default(),
             canvas_size: na::zero(),
@@ -90,7 +96,7 @@ impl Component for FieldEditor {
         self.update_size();
 
         if first_render {
-            self.view.center(&self.canvas_size);
+            self.props.view.center(&self.canvas_size);
 
             self.setup_callbacks();
         }
@@ -112,7 +118,7 @@ impl Component for FieldEditor {
 
                 // handle mouse move if mouse is down
                 if ev.buttons().right() {
-                    self.view.pan(ev.pos() - self.mouse_last.pos());
+                    self.props.view.pan(ev.pos() - self.mouse_last.pos());
                 }
 
                 // set as last mouse event
@@ -125,13 +131,17 @@ impl Component for FieldEditor {
                 if ev.button().left() {
                     if ev.modifiers().shift() {
                         // delete tile
-                        *self.view.flex_mut(&ev.pos()) = Panel::EMPTY;
-                        self.view.collapse();
+                        *self.props.view.flex_mut(&ev.pos()) = Panel::EMPTY;
+                        self.props.view.collapse();
                     } else {
                         // place current tile
-                        self.view.flex_mut(&ev.pos()).kind = self.view.selected;
-                        self.view.collapse();
+                        self.props.view.flex_mut(&ev.pos()).kind = self.props.view.selected;
+                        self.props.view.collapse();
                     }
+
+                    // we're lazy; only call update if the field has been
+                    // updated
+                    self.emit_update();
                 }
             },
             Msg::MouseWheel(ev) => {
@@ -140,15 +150,15 @@ impl Component for FieldEditor {
                 let delta = ev.delta_y() * -0.01;
 
                 // handle scroll? ez
-                let scale = self.view.get_scale();
+                let scale = self.props.view.get_scale();
                 // cap scroll
                 if delta > 0. {
                     if scale.x.max(scale.y) < EditorView::MAX_ZOOM {
-                        self.view.scale(1. + delta, ev.pos());
+                        self.props.view.scale(1. + delta, ev.pos());
                     }
                 } else {
                     if scale.x.max(scale.y) > EditorView::MIN_ZOOM {
-                        self.view.scale(1. + delta, ev.pos());
+                        self.props.view.scale(1. + delta, ev.pos());
                     }
                 }
             }
@@ -170,7 +180,7 @@ impl Component for FieldEditor {
                 self.panel_textures[panel_kind] = Texture::Error;
             },
             Msg::PanelKindSelect(kind) => {
-                self.view.selected = kind;
+                self.props.view.selected = kind;
             },
             Msg::Resize => {
                 // rerender
@@ -185,7 +195,7 @@ impl Component for FieldEditor {
         html! {
             <div class="editor-container">
                 <panel::PanelSelector onselect=self.link.callback(Msg::PanelKindSelect) 
-                                      selected=default_panel() />
+                                      selected=self.props.view.selected />
                 <canvas class="editor-canvas"
                         oncontextmenu=self.link.callback(Msg::ContextMenu)
                         onmousemove=self.link.callback(Msg::MouseMove)
@@ -197,8 +207,12 @@ impl Component for FieldEditor {
         }
     }
 
-    fn change(&mut self, _props: Self::Properties) -> ShouldRender {
-        // do not render changes
+    fn change(&mut self, props: Self::Properties) -> ShouldRender {
+        if self.props != props {
+            self.props = props;
+        }
+
+        // the editor is managed by the GL, so we don't need to re-render
         false
     }
 }
@@ -215,10 +229,10 @@ impl FieldEditor {
         basic.clear();
         
         // setup view matrix
-        let mut draw = basic.begin_draw(&self.view.view);
+        let mut draw = basic.begin_draw(&self.props.view.view);
 
-        for (x, y) in self.view.field.iter() {
-            let panel = self.view.field.get(x, y);
+        for (x, y) in self.props.view.field.iter() {
+            let panel = self.props.view.field.get(x, y);
             let (x, y) = (x as f32, y as f32);
 
             let panel_tex = match &self.panel_textures[panel.kind] {
@@ -237,6 +251,10 @@ impl FieldEditor {
 
     fn canvas(&self) -> HtmlCanvasElement {
         self.canvas.cast::<HtmlCanvasElement>().unwrap()
+    }
+
+    fn emit_update(&self) {
+        self.props.onupdate.emit(self.props.view.clone())
     }
 
     fn gl_invalidated(&self) -> bool {
@@ -352,6 +370,3 @@ impl FieldEditor {
     }
 }
 
-pub fn default_panel() -> PanelKind {
-    PanelKind::Neutral
-}

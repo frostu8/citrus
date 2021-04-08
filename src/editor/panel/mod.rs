@@ -15,35 +15,10 @@ pub struct PanelSelector {
     pos: f32,
 }
 
-#[derive(Clone, Properties)]
+#[derive(Clone, PartialEq, Properties)]
 pub struct Props {
     pub onselect: Callback<PanelKind>,
     pub selected: PanelKind,
-}
-
-impl PartialEq for Props {
-    fn eq(&self, other: &Self) -> bool {
-        if self.selected == other.selected {
-            return false;
-        }
-
-        match &self.onselect {
-            Callback::Callback(ptr1) => {
-                if let Callback::Callback(ptr2) = &other.onselect {
-                    std::rc::Rc::ptr_eq(ptr1, ptr2)
-                } else {
-                    false
-                }
-            },
-            Callback::CallbackOnce(ptr1) => {
-                if let Callback::CallbackOnce(ptr2) = &other.onselect {
-                    std::rc::Rc::ptr_eq(ptr1, ptr2)
-                } else {
-                    false
-                }
-            },
-        }
-    }
 }
 
 pub enum Msg {

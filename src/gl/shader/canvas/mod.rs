@@ -84,6 +84,8 @@ struct CanvasShaderProgram {
     world_transform: GLUniformLocation,
     // attributes
     pos: u32,
+    // static data
+    unit_square: GLBuffer,
 }
 
 impl CanvasShaderProgram {
@@ -96,6 +98,19 @@ impl CanvasShaderProgram {
             gl.compile_frag_shader(FRAG_SHADER)?,
         )?;
 
+        let unit_square = gl.create_static_buffer(
+            &[
+                // top right
+                1., 0.,
+                // top left corner is just x, y
+                0., 0.,
+                // bottom right
+                1., 1.,
+                // bottom left
+                0., 1.,
+            ],
+        );
+
         Ok(CanvasShaderProgram {
             pos: gl.get_attrib_location(&program, "aUnitPos") as u32,
 
@@ -104,6 +119,8 @@ impl CanvasShaderProgram {
 
             program,
             gl,
+
+            unit_square,
         })
     }
 
@@ -122,19 +139,8 @@ impl CanvasShaderProgram {
 
         // create vertex buffer
         self.gl.start_draw()
-            .vertices_vec2(
-                &[
-                    // top right
-                    1., 0.,
-                    // top left corner is just x, y
-                    0., 0.,
-                    // bottom right
-                    1., 1.,
-                    // bottom left
-                    0., 1.,
-                ],
-                self.pos,
-            )
+            // bind verts
+            .attribute_vec2(&self.unit_square, self.pos)
             // bind our texture
             .bind_texture0(
                 tex,
@@ -145,7 +151,7 @@ impl CanvasShaderProgram {
                 mat,
                 &self.world_transform,
             )
-            .draw_triangle_strip();
+            .draw_triangle_strip(4);
     }
 }
 

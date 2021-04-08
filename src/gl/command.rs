@@ -1,57 +1,29 @@
 use super::*;
 
-use js_sys::Float32Array;
-
 use na::Matrix4;
 
 /// A draw command.
-///
-/// Because OpenGL is a state-machine abomination, we have to bundle up draw
-/// commands so their components are disposed of properly.
 pub struct DrawCommand<A>
 where A: AttributeLink {
     gl: WebGl,
     attribute: A,
-    draw_count: usize,
 }
 
 impl<A> DrawCommand<A>
 where A: AttributeLink {
-    /// Attributes an array of Vector2s. The length will be used to call the
-    /// draw function.
-    pub fn vertices_vec2(
-        self,
-        data: &[f32],
-        attrib: u32,
-    ) -> DrawCommand<AttributeVec2<A>> {
-        self.attribute_vec2(data, attrib)
-            .draw_count(data.len() / 2)
-    }
-
     /// Attributes an array of Vector2s.
     pub fn attribute_vec2(
         self, 
-        data: &[f32], 
+        data: &GLBuffer, 
         attrib: u32
     ) -> DrawCommand<AttributeVec2<A>> {
-        let buffer = self.gl.create_buffer().unwrap();
-        let data = Float32Array::from(data);
-
-        self.gl.bind_buffer(GL::ARRAY_BUFFER, Some(&buffer));
-        self.gl.buffer_data_with_array_buffer_view(
-            GL::ARRAY_BUFFER, 
-            &data, 
-            GL::STREAM_DRAW,
-        );
-
         DrawCommand {
             attribute: AttributeVec2 {
                 parent: self.attribute,
-                data: buffer,
+                data,
                 attrib,
             },
             gl: self.gl,
-            draw_count: self.draw_count,
         }
     }
 
@@ -68,7 +40,6 @@ where A: AttributeLink {
                 uniform,
             },
             gl: self.gl,
-            draw_count: self.draw_count,
         }
     }
 
@@ -96,59 +67,42 @@ where A: AttributeLink {
                 slot,
             },
             gl: self.gl,
-            draw_count: self.draw_count,
-        }
-    }
-
-    /// Sets the draw count, which is how many units must be processed.
-    pub fn draw_count(self, draw_count: usize) -> DrawCommand<A> {
-        DrawCommand {
-            draw_count,
-            ..self
         }
     }
 
     /// Executes the command.
-    pub fn draw_triangle_strip(self) {
+    pub fn draw_triangle_strip(self, count: usize) {
         // execute attributes
         self.attribute.attribute(&self.gl);
 
-        self.gl.draw_arrays(GL::TRIANGLE_STRIP, 0, self.draw_count as i32);
-
-        // drop values
-        self.attribute.destroy(&self.gl);
+        self.gl.draw_arrays(GL::TRIANGLE_STRIP, 0, count as i32);
     }
 
     pub fn new(gl: WebGl) -> DrawCommand<()> {
         DrawCommand {
             gl,
             attribute: (),
-            draw_count: 0,
         }
     }
 }
 
 pub trait AttributeLink {
     fn attribute(&self, gl: &WebGl);
-
-    fn destroy(&self, gl: &WebGl);
 }
 
 impl AttributeLink for () {
     fn attribute(&self, _gl: &WebGl) { }
-
-    fn destroy(&self, _gl: &WebGl) { }
 }
 
 /// Attributes a Vector2 array to an attribute.
-pub struct AttributeVec2<P> 
+pub struct AttributeVec2<'a, P> 
 where P: AttributeLink {
     parent: P,
-    data: WebGlBuffer,
+    data: &'a GLBuffer,
     attrib: u32,
 }
 
-impl<P> AttributeLink for AttributeVec2<P> 
+impl<'a, P> AttributeLink for AttributeVec2<'a, P> 
 where P: AttributeLink {
     fn attribute(&self, gl: &WebGl) {
         gl.bind_buffer(GL::ARRAY_BUFFER, Some(&self.data));
@@ -157,13 +111,6 @@ where P: AttributeLink {
 
         // call next in chain
         self.parent.attribute(gl);
-    }
-
-    fn destroy(&self, gl: &WebGl) {
-        gl.delete_buffer(Some(&self.data));
-
-        // call next in chain
-        self.parent.destroy(gl);
     }
 }
 
@@ -188,13 +135,6 @@ where P: AttributeLink {
         // call next in chain
         self.parent.attribute(gl);
     }
-
-    fn destroy(&self, gl: &WebGl) {
-        // do not delete these, because they aren't our assets and will be
-        // dropped when they are needed.
-        // call next in chain
-        self.parent.destroy(gl);
-    }
 }
 
 /// Binds a [`Matrix4`] to a uniform.
@@ -216,12 +156,5 @@ where P: AttributeLink {
 
         // call next in chain
         self.parent.attribute(gl);
-    }
-
-    fn destroy(&self, gl: &WebGl) {
-        // do not delete these, because they aren't our assets and will be
-        // dropped when they are needed.
-        // call next in chain
-        self.parent.destroy(gl);
     }
 }

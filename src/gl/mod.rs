@@ -123,6 +123,24 @@ impl GL {
         );
     }
 
+    /// Creates a new static buffer.
+    pub fn create_static_buffer(
+        &self,
+        data: &[f32],
+    ) -> GLBuffer {
+        let buffer = GLBuffer(self.clone_ref(), self.0.create_buffer().unwrap());
+        let data = js_sys::Float32Array::from(data);
+
+        self.0.bind_buffer(GL::ARRAY_BUFFER, Some(&buffer));
+        self.0.buffer_data_with_array_buffer_view(
+            GL::ARRAY_BUFFER, 
+            &data, 
+            GL::STATIC_DRAW,
+        );
+
+        buffer
+    }
+
     /// Gets the location of a uniform specified by name.
     pub fn get_uniform_location(
         &self,
@@ -251,6 +269,23 @@ impl Drop for GLProgram {
 
 impl Deref for GLProgram {
     type Target = WebGlProgram;
+
+    fn deref(&self) -> &Self::Target {
+        &self.1
+    }
+}
+
+/// Buffer handle.
+pub struct GLBuffer(WebGl, WebGlBuffer);
+
+impl Drop for GLBuffer {
+    fn drop(&mut self) {
+        self.0.delete_buffer(Some(&self.1));
+    }
+}
+
+impl Deref for GLBuffer {
+    type Target = WebGlBuffer;
 
     fn deref(&self) -> &Self::Target {
         &self.1

@@ -21,6 +21,8 @@ pub struct EditorView {
     pub field: Rc<Field>,
     #[serde(with = "serde::panel_kind")]
     pub selected: PanelKind,
+    #[serde(skip)]
+    pub needs_center: bool,
 }
 
 impl EditorView {
@@ -51,6 +53,7 @@ impl EditorView {
                 ])
             ),
             selected: Self::DEFAULT_PANEL,
+            needs_center: true,
         }
     }
 
@@ -211,6 +214,7 @@ impl Default for EditorView {
             field: Rc::new(Field::new()),
             selected: EditorView::DEFAULT_PANEL,
             view: Matrix4::identity(),
+            needs_center: false,
         }
     }
 }

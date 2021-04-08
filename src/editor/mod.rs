@@ -95,9 +95,12 @@ impl Component for FieldEditor {
 
         self.update_size();
 
-        if first_render {
+        // only center if a center was requested
+        if self.props.view.needs_center {
             self.props.view.center(&self.canvas_size);
+        }
 
+        if first_render {
             self.setup_callbacks();
         }
     }

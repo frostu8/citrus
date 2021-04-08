@@ -137,8 +137,20 @@ impl Component for FieldEditor {
             Msg::MouseWheel(ev) => {
                 let ev: WheelEvent = (&ev).into();
 
+                let delta = ev.delta_y() * -0.01;
+
                 // handle scroll? ez
-                self.view.scale(1. - (ev.delta_y() * -0.01), ev.pos());
+                let scale = self.view.get_scale();
+                // cap scroll
+                if delta > 0. {
+                    if scale.x.max(scale.y) < Self::MAX_ZOOM {
+                        self.view.scale(1. + delta, ev.pos());
+                    }
+                } else {
+                    if scale.x.max(scale.y) > Self::MIN_ZOOM {
+                        self.view.scale(1. + delta, ev.pos());
+                    }
+                }
             }
             Msg::ContextMenu(ev) => {
                 ev.prevent_default();
@@ -192,6 +204,9 @@ impl Component for FieldEditor {
 }
 
 impl FieldEditor {
+    pub const MAX_ZOOM: f32 = 256.;
+    pub const MIN_ZOOM: f32 = 32.;
+
     /// Renders the field editor to the attached canvas.
     pub fn render(&mut self, _timestamp: f64) {
         let basic = match self.basic_shader.as_mut() {

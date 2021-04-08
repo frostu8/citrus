@@ -53,6 +53,14 @@ impl EditorView {
             .append_translation(&at);
     }
 
+    /// Gets the scale value.
+    pub fn get_scale(&self) -> Vector2<f32> {
+        Vector2::new(
+            (self.view.m11.powi(2) + self.view.m12.powi(2)).sqrt(),
+            (self.view.m21.powi(2) + self.view.m22.powi(2)).sqrt(),
+        )
+    }
+
     /// Translates and scales the field so that it rests entirely within a
     /// bounding box.
     pub fn center(&mut self, bb: &Vector2<f32>) {

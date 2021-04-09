@@ -18,38 +18,36 @@ macro_rules! match_img {
 ///
 /// Returns `None` if a panel does not have an image representation.
 pub fn panel_source(kind: PanelKind) -> Option<&'static str> {
-    Some(
-        match_img! {
-            kind,
-            Neutral => "neutral.png",
-            Home => "home.png",
-            Encounter => "encounter.png",
-            Draw => "draw.png",
-            Bonus => "bonus.png",
-            Drop => "drop.png",
-            Warp => "warp.png",
-            Draw2x => "draw2x.png",
-            Bonus2x => "bonus2x.png",
-            Drop2x => "drop2x.png",
-            Encounter2x => "encounter2x.png",
-            Move => "move.png",
-            Move2x => "move2x.png",
-            WarpMove => "warpmove.png",
-            WarpMove2x => "warpmove2x.png",
-            Ice => "ice.png",
-            Heal => "heal.png",
-            Heal2x => "heal2x.png",
-            Damage => "damage.png",
-            Damage2x => "damage2x.png"
-        }
-    )
+    Some(match_img! {
+        kind,
+        Neutral => "neutral.png",
+        Home => "home.png",
+        Encounter => "encounter.png",
+        Draw => "draw.png",
+        Bonus => "bonus.png",
+        Drop => "drop.png",
+        Warp => "warp.png",
+        Draw2x => "draw2x.png",
+        Bonus2x => "bonus2x.png",
+        Drop2x => "drop2x.png",
+        Encounter2x => "encounter2x.png",
+        Move => "move.png",
+        Move2x => "move2x.png",
+        WarpMove => "warpmove.png",
+        WarpMove2x => "warpmove2x.png",
+        Ice => "ice.png",
+        Heal => "heal.png",
+        Heal2x => "heal2x.png",
+        Damage => "damage.png",
+        Damage2x => "damage2x.png"
+    })
 }
 
 // `EnumKey` implementation
 // Orphan rules mean we can't generate this with a macro, so we have to
 // redefine all of this. That's fine, I had to do this like this in the
 // previous crate too.
-use crate::enum_map::{EnumKey};
+use crate::enum_map::EnumKey;
 
 impl<T> EnumKey<T> for PanelKind {
     type Storage = [T; 22];

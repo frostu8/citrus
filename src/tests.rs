@@ -6,11 +6,9 @@ use citrus_common::PanelKind;
 #[test]
 pub fn test_enum_map() {
     // test allocation
-    let mut panel_map = EnumMap::<PanelKind, String>::new(|kind| {
-        match kind {
-            PanelKind::Bonus => String::from("awesome"),
-            _ => String::new(),
-        }
+    let mut panel_map = EnumMap::<PanelKind, String>::new(|kind| match kind {
+        PanelKind::Bonus => String::from("awesome"),
+        _ => String::new(),
     });
 
     assert_eq!(panel_map[PanelKind::Bonus], "awesome");
@@ -41,14 +39,12 @@ pub fn test_enum_map_safety() {
     let drop_count = Cell::new(0);
 
     let result = catch_unwind(AssertUnwindSafe(|| {
-        EnumMap::<PanelKind, DropTest>::new(|kind| {
-            match kind {
-                PanelKind::Drop2x => panic!("should be removed imo"),
-                _ => DropTest(&drop_count),
-            }
+        EnumMap::<PanelKind, DropTest>::new(|kind| match kind {
+            PanelKind::Drop2x => panic!("should be removed imo"),
+            _ => DropTest(&drop_count),
         });
     }));
-    
+
     assert!(result.is_err());
     assert!(drop_count.get() > 0);
 }

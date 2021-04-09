@@ -42,16 +42,14 @@ impl EditorView {
 
         EditorView {
             view: Matrix4::new_scaling(Self::INITIAL_ZOOM),
-            field: Rc::new(
-                Field::new_slice(&[
-                    &[HOME,      BONUS, DRAW,      ENCOUNTER, DROP,  HOME],
-                    &[DROP,      EMPTY, EMPTY,     EMPTY,     EMPTY, BONUS],
-                    &[ENCOUNTER, EMPTY, EMPTY,     EMPTY,     EMPTY, DRAW],
-                    &[DRAW,      EMPTY, EMPTY,     EMPTY,     EMPTY, ENCOUNTER],
-                    &[BONUS,     EMPTY, EMPTY,     EMPTY,     EMPTY, DROP],
-                    &[HOME,      DROP,  ENCOUNTER, DRAW,      BONUS, HOME],
-                ])
-            ),
+            field: Rc::new(Field::new_slice(&[
+                &[HOME, BONUS, DRAW, ENCOUNTER, DROP, HOME],
+                &[DROP, EMPTY, EMPTY, EMPTY, EMPTY, BONUS],
+                &[ENCOUNTER, EMPTY, EMPTY, EMPTY, EMPTY, DRAW],
+                &[DRAW, EMPTY, EMPTY, EMPTY, EMPTY, ENCOUNTER],
+                &[BONUS, EMPTY, EMPTY, EMPTY, EMPTY, DROP],
+                &[HOME, DROP, ENCOUNTER, DRAW, BONUS, HOME],
+            ])),
             selected: Self::DEFAULT_PANEL,
             needs_center: true,
         }
@@ -64,7 +62,8 @@ impl EditorView {
 
     /// Translates the view.
     pub fn pan(&mut self, pan: Vector2<f32>) {
-        self.view = self.view
+        self.view = self
+            .view
             .append_translation(&Vector3::new(pan.x, pan.y, 0.));
     }
 
@@ -72,7 +71,8 @@ impl EditorView {
     pub fn scale(&mut self, factor: f32, at: Vector2<f32>) {
         let at = Vector3::new(at.x, at.y, 0.);
 
-        self.view = self.view
+        self.view = self
+            .view
             .append_translation(&-at)
             .append_scaling(factor)
             .append_translation(&at);
@@ -92,10 +92,7 @@ impl EditorView {
         if self.field.width() > 0 && self.field.height() > 0 {
             const MARGIN: f32 = 64.;
 
-            let field_size = Vector2::new(
-                self.field.width() as f32,
-                self.field.height() as f32,
-            );
+            let field_size = Vector2::new(self.field.width() as f32, self.field.height() as f32);
 
             let room = bb - Vector2::new(MARGIN, MARGIN);
 
@@ -107,8 +104,11 @@ impl EditorView {
 
             let translate = (bb - field_bb) / 2.;
 
-            self.view = Matrix4::new_scaling(scale)
-                .append_translation(&Vector3::new(translate.x, translate.y, 0.));
+            self.view = Matrix4::new_scaling(scale).append_translation(&Vector3::new(
+                translate.x,
+                translate.y,
+                0.,
+            ));
         }
     }
 
@@ -123,27 +123,33 @@ impl EditorView {
     /// Collapses the field into the smallest bounding box it can.
     pub fn collapse(&mut self) {
         // get bounds
-        let left_bound = self.field.columns_iter()
+        let left_bound = self
+            .field
+            .columns_iter()
             .position(|mut x| !x.all(empty))
             .unwrap_or(0);
-        let right_bound = self.field.columns_iter()
+        let right_bound = self
+            .field
+            .columns_iter()
             .rposition(|mut x| !x.all(empty))
-            .map(|x| x+1)
+            .map(|x| x + 1)
             .unwrap_or(0);
-        let top_bound = self.field.rows_iter()
+        let top_bound = self
+            .field
+            .rows_iter()
             .position(|mut x| !x.all(empty))
             .unwrap_or(0);
-        let bottom_bound = self.field.rows_iter()
+        let bottom_bound = self
+            .field
+            .rows_iter()
             .rposition(|mut x| !x.all(empty))
-            .map(|x| x+1)
+            .map(|x| x + 1)
             .unwrap_or(0);
 
         // resize field to fit
         self.resize_field(
-            (right_bound - left_bound, bottom_bound - top_bound)
-                .map(|x| x as isize),
-            (left_bound, top_bound)
-                .map(|x| -(x as isize)),
+            (right_bound - left_bound, bottom_bound - top_bound).map(|x| x as isize),
+            (left_bound, top_bound).map(|x| -(x as isize)),
         );
     }
 
@@ -162,7 +168,7 @@ impl EditorView {
             let offset = pos.map(|x| max(-x, 0));
 
             // get resize
-            let resize = pos.apply(self.field_size(), |x, s| max(x+1 - s, 0));
+            let resize = pos.apply(self.field_size(), |x, s| max(x + 1 - s, 0));
             let resize = resize.add(offset);
 
             let new_size = self.field_size().add(resize);
@@ -180,25 +186,24 @@ impl EditorView {
         debug_assert!(size.1 >= 0, "size cannot be negative");
 
         let field = &self.field;
-        let field = Field::new_iter(
-            (0..size.1).map(move |y| {
-                (0..size.0).map(move |x| {
-                    let pos = (x,y).sub(offset);
+        let field = Field::new_iter((0..size.1).map(move |y| {
+            (0..size.0).map(move |x| {
+                let pos = (x, y).sub(offset);
 
-                    if in_bounds(field, pos) {
-                        let (x,y) = pos.map(|x| x as usize);
-                        field.get(x, y).clone()
-                    } else {
-                        Panel::EMPTY
-                    }
-                })
+                if in_bounds(field, pos) {
+                    let (x, y) = pos.map(|x| x as usize);
+                    field.get(x, y).clone()
+                } else {
+                    Panel::EMPTY
+                }
             })
-        );
+        }));
         *Rc::make_mut(&mut self.field) = field;
 
         // translate field
-        self.view = self.view
-            .prepend_translation(&-Vector3::new(offset.0 as f32, offset.1 as f32, 0.));
+        self.view =
+            self.view
+                .prepend_translation(&-Vector3::new(offset.0 as f32, offset.1 as f32, 0.));
     }
 
     fn pos(&self, pos: &Vector2<f32>) -> (isize, isize) {
@@ -227,33 +232,45 @@ impl PartialEq for EditorView {
     }
 }
 
-trait TupleExt<T>:
-where Self: Sized {
+trait TupleExt<T>
+where
+    Self: Sized,
+{
     fn map<F, U>(self, mapper: F) -> (U, U)
-    where F: FnMut(T) -> U;
+    where
+        F: FnMut(T) -> U;
 
     fn apply<F, V, U>(self, other: (V, V), apply: F) -> (U, U)
-    where F: FnMut(T, V) -> U;
+    where
+        F: FnMut(T, V) -> U;
 
     fn add(self, other: (T, T)) -> (T::Output, T::Output)
-    where T: std::ops::Add {
+    where
+        T: std::ops::Add,
+    {
         self.apply(other, std::ops::Add::add)
     }
 
     fn sub(self, other: (T, T)) -> (T::Output, T::Output)
-    where T: std::ops::Sub {
+    where
+        T: std::ops::Sub,
+    {
         self.apply(other, std::ops::Sub::sub)
     }
 }
 
 impl<T> TupleExt<T> for (T, T) {
     fn map<F, U>(self, mut mapper: F) -> (U, U)
-    where F: FnMut(T) -> U {
+    where
+        F: FnMut(T) -> U,
+    {
         (mapper(self.0), mapper(self.1))
     }
 
     fn apply<F, V, U>(self, other: (V, V), mut apply: F) -> (U, U)
-    where F: FnMut(T, V) -> U {
+    where
+        F: FnMut(T, V) -> U,
+    {
         (apply(self.0, other.0), apply(self.1, other.1))
     }
 }

@@ -2,11 +2,11 @@ mod iter;
 
 pub use iter::*;
 
-use std::ops::{Index, IndexMut};
 use std::mem::MaybeUninit;
+use std::ops::{Index, IndexMut};
 
 /// A map that uses enums as its keys.
-/// 
+///
 /// Blazing fast, stack allocated. What is there not to love about this?
 pub struct EnumMap<E: EnumKey<T>, T> {
     data: E::Storage,
@@ -14,12 +14,12 @@ pub struct EnumMap<E: EnumKey<T>, T> {
 
 impl<E: EnumKey<T>, T> EnumMap<E, T> {
     /// Creates a new [`EnumMap`] using an initializer function.
-    pub fn new<F>(mut init: F) -> EnumMap<E, T> 
-    where F: FnMut(E) -> T {
+    pub fn new<F>(mut init: F) -> EnumMap<E, T>
+    where
+        F: FnMut(E) -> T,
+    {
         EnumMap {
-            data: E::Storage::init(|index| {
-                init(E::from_usize(index))
-            }),
+            data: E::Storage::init(|index| init(E::from_usize(index))),
         }
     }
 
@@ -80,7 +80,7 @@ pub trait EnumKey<T> {
     ///
     /// # Gaurantees
     /// Each and every call to this is gauranteed to only either be within the
-    /// bounds of the [`EnumKey::Storage`], or a result from 
+    /// bounds of the [`EnumKey::Storage`], or a result from
     /// [`EnumKey::into_usize`].
     fn from_usize(int: usize) -> Self;
 }
@@ -91,9 +91,10 @@ pub trait Storage<T> {
 
     fn as_ref(&self) -> &[T];
     fn as_mut(&mut self) -> &mut [T];
-    
+
     fn init<F>(initializer: F) -> Self
-    where F: FnMut(usize) -> T; 
+    where
+        F: FnMut(usize) -> T;
 }
 
 impl<T, const N: usize> Storage<T> for [T; N] {
@@ -111,7 +112,9 @@ impl<T, const N: usize> Storage<T> for [T; N] {
     // https://github.com/Manishearth/array-init/blob/master/src/lib.rs
     // as a reference.
     fn init<F>(mut initializer: F) -> Self
-    where F: FnMut(usize) -> T {
+    where
+        F: FnMut(usize) -> T,
+    {
         struct Guard<T> {
             ptr_start: *mut T,
             initialized: usize,
@@ -119,13 +122,14 @@ impl<T, const N: usize> Storage<T> for [T; N] {
 
         impl<T> Drop for Guard<T> {
             fn drop(&mut self) {
-                let initialized_part = std::ptr::slice_from_raw_parts_mut(
-                    self.ptr_start, self.initialized,
-                );
+                let initialized_part =
+                    std::ptr::slice_from_raw_parts_mut(self.ptr_start, self.initialized);
 
                 // SAFETY: this is sound, because initialized_part will only
                 // have the initialized types.
-                unsafe { std::ptr::drop_in_place(initialized_part); }
+                unsafe {
+                    std::ptr::drop_in_place(initialized_part);
+                }
             }
         }
 
@@ -162,9 +166,8 @@ impl<T, const N: usize> Storage<T> for [T; N] {
 
             // forget the panic guard and return to symbolic ownership
             std::mem::forget(guard);
-            
+
             array.assume_init()
         }
     }
 }
-

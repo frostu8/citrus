@@ -1,4 +1,6 @@
-#![recursion_limit="256"]
+#![recursion_limit = "256"]
+// NOTE: if elses are sometimes verbose to better communicate code intent.
+#![allow(clippy::collapsible_else_if)]
 
 extern crate nalgebra as na;
 
@@ -15,10 +17,10 @@ mod tests;
 use wasm_bindgen::prelude::*;
 
 use yew::prelude::*;
-use yew::services::storage::{StorageService, Area};
+use yew::services::storage::{Area, StorageService};
 
+use editor::{EditorView, FieldEditor};
 use format::Ron;
-use editor::{FieldEditor, EditorView};
 
 // When the `wee_alloc` feature is enabled, this uses `wee_alloc` as the global
 // allocator.
@@ -31,7 +33,7 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 /// Citrus runtime.
 pub struct Runtime {
     link: ComponentLink<Self>,
-    
+
     view: EditorView,
 }
 
@@ -42,13 +44,12 @@ pub enum Msg {
 impl Component for Runtime {
     type Message = Msg;
     type Properties = ();
-    
+
     fn create(_props: Self::Properties, link: ComponentLink<Self>) -> Self {
         Runtime {
             link,
             // load views from storage
-            view: Runtime::load_storage()
-                .unwrap_or(EditorView::new_example()),
+            view: Runtime::load_storage().unwrap_or_else(EditorView::new_example),
         }
     }
 
@@ -68,7 +69,7 @@ impl Component for Runtime {
 
     fn view(&self) -> Html {
         html! {
-            <FieldEditor view=self.view.clone() 
+            <FieldEditor view=self.view.clone()
                          onupdate=self.link.callback(Msg::Update) />
         }
     }
@@ -81,7 +82,9 @@ impl Runtime {
         let storage = StorageService::new(Area::Local).unwrap();
 
         // restore our value
-        storage.restore::<Ron<Result<EditorView, anyhow::Error>>>("cached_field").0
+        storage
+            .restore::<Ron<Result<EditorView, anyhow::Error>>>("cached_field")
+            .0
             .ok()
     }
 

@@ -1,5 +1,5 @@
-use std::fmt::{Display, Debug, Formatter, Result as FmtResult};
 use std::error::Error;
+use std::fmt::{Debug, Display, Formatter, Result as FmtResult};
 
 /// General GL error.
 #[derive(Debug)]
@@ -63,18 +63,24 @@ impl UniformNotFoundError {
 impl Debug for UniformNotFoundError {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         f.write_str("ShaderCompileError(\n")?;
-        for error in self.errors() { write!(f, "\t{}\n", error)?; }
+        for error in self.errors() {
+            writeln!(f, "\t{}", error)?;
+        }
         f.write_str(")")
     }
 }
 
 impl Display for UniformNotFoundError {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(f, "shader compile error with {} errors.", self.errors().count())
+        write!(
+            f,
+            "shader compile error with {} errors.",
+            self.errors().count()
+        )
     }
 }
 
-impl Error for UniformNotFoundError { }
+impl Error for UniformNotFoundError {}
 
 /// Error during shader compilation.
 pub struct ShaderCompileError(String);
@@ -92,18 +98,24 @@ impl ShaderCompileError {
 impl Debug for ShaderCompileError {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         f.write_str("ShaderCompileError(\n")?;
-        for error in self.errors() { write!(f, "\t{}\n", error)?; }
+        for error in self.errors() {
+            writeln!(f, "\t{}", error)?;
+        }
         f.write_str(")")
     }
 }
 
 impl Display for ShaderCompileError {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(f, "shader compile error with {} errors.", self.errors().count())
+        write!(
+            f,
+            "shader compile error with {} errors.",
+            self.errors().count()
+        )
     }
 }
 
-impl Error for ShaderCompileError { }
+impl Error for ShaderCompileError {}
 
 /// Error during program linking.
 pub struct ProgramLinkError(String);
@@ -121,15 +133,21 @@ impl ProgramLinkError {
 impl Debug for ProgramLinkError {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         f.write_str("ProgramLinkError(\n")?;
-        for error in self.errors() { write!(f, "\t{}\n", error)?; }
+        for error in self.errors() {
+            writeln!(f, "\t{}", error)?;
+        }
         f.write_str(")")
     }
 }
 
 impl Display for ProgramLinkError {
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(f, "program link error with {} errors.", self.errors().count())
+        write!(
+            f,
+            "program link error with {} errors.",
+            self.errors().count()
+        )
     }
 }
 
-impl Error for ProgramLinkError { }
+impl Error for ProgramLinkError {}

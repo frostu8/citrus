@@ -1,9 +1,9 @@
-use yew::prelude::*;
 use yew::callback::Callback;
+use yew::prelude::*;
 
 use citrus_common::PanelKind;
 
-use super::assets::{PanelMap, self};
+use super::assets::{self, PanelMap};
 
 /// Panel selector component.
 pub struct PanelSelector {
@@ -43,17 +43,12 @@ impl Component for PanelSelector {
         }
     }
 
-    fn rendered(&mut self, _first_render: bool) {
-    }
+    fn rendered(&mut self, _first_render: bool) {}
 
     fn update(&mut self, msg: Self::Message) -> ShouldRender {
         match msg {
-            Msg::MouseEnter => {
-                self.update_pos(0.)
-            },
-            Msg::MouseLeave => {
-                self.update_pos(-1.)
-            },
+            Msg::MouseEnter => self.update_pos(0.),
+            Msg::MouseLeave => self.update_pos(-1.),
             Msg::Select(kind) => {
                 self.props.selected = kind;
                 // bubble
@@ -76,7 +71,7 @@ impl Component for PanelSelector {
     fn view(&self) -> Html {
         html! {
             <div class="panel-selector-area"
-                 onmouseenter=self.link.callback(|_| Msg::MouseEnter) 
+                 onmouseenter=self.link.callback(|_| Msg::MouseEnter)
                  onmouseleave=self.link.callback(|_| Msg::MouseLeave) >
                 { self.generate_buttons() }
             </div>
@@ -93,7 +88,7 @@ impl PanelSelector {
     fn generate_buttons(&self) -> Html {
         html! {
             <div class="panel-selector" style=self.get_style() >
-                { 
+                {
                     for self.panel_images.iter()
                         .filter_map(|(kind, r)| {
                             Some((assets::panel_source(kind)?, kind, r))
@@ -104,13 +99,13 @@ impl PanelSelector {
                                        "panel-button selected"
                                    } else {
                                        "panel-button"
-                                   } } 
+                                   } }
                                    href="#"
                                    onclick=self.link.callback(move |_| Msg::Select(kind))>
                                     <img ref=r.clone() src=src />
                                 </a>
                             }
-                        }) 
+                        })
                 }
             </div>
         }
@@ -121,7 +116,7 @@ impl PanelSelector {
             concat!(
                 "transform: translate({}%, 0);",
                 "transition: transform 0.3s;",
-            ), 
+            ),
             self.pos * 100.
         )
     }

@@ -82,9 +82,7 @@ impl MouseModifiers {
 
 impl From<&web_sys::MouseEvent> for MouseModifiers {
     fn from(e: &web_sys::MouseEvent) -> MouseModifiers {
-        MouseModifiers(
-            boolean(e.shift_key()) & Self::SHIFT.0
-        )
+        MouseModifiers(boolean(e.shift_key()) & Self::SHIFT.0)
     }
 }
 
@@ -127,6 +125,9 @@ impl From<&web_sys::WheelEvent> for WheelEvent {
 }
 
 fn boolean(b: bool) -> u8 {
-    if b { u8::MAX } else { u8::MIN }
+    if b {
+        u8::MAX
+    } else {
+        u8::MIN
+    }
 }
-

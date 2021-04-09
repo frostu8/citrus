@@ -8,22 +8,16 @@ pub mod color;
 pub mod error;
 pub mod shader;
 
-pub use error::*;
 pub use color::*;
+pub use error::*;
 
 use wasm_bindgen::JsCast as _;
 use web_sys::{
-    HtmlImageElement,
-    HtmlCanvasElement,
-    WebGlBuffer,
-    WebGlShader, 
-    WebGlProgram, 
-    WebGlTexture, 
-    WebGlRenderingContext as WebGl,
-    WebGlUniformLocation,
+    HtmlCanvasElement, HtmlImageElement, WebGlBuffer, WebGlProgram, WebGlRenderingContext as WebGl,
+    WebGlShader, WebGlTexture, WebGlUniformLocation,
 };
 
-use na::{Matrix4};
+use na::Matrix4;
 
 use std::ops::Deref;
 
@@ -36,10 +30,11 @@ pub struct GL(WebGl);
 impl GL {
     /// Creates a new GL context.
     pub fn new(canvas: HtmlCanvasElement) -> Option<GL> {
-        canvas.get_context("webgl").ok().flatten()
-            .map(|webgl| {
-                GL(webgl.unchecked_into())
-            })
+        canvas
+            .get_context("webgl")
+            .ok()
+            .flatten()
+            .map(|webgl| GL(webgl.unchecked_into()))
     }
 
     /// Gets a copied reference to the inner [`WebGlRenderingContext`] object.
@@ -59,23 +54,37 @@ impl GL {
 
         // create texture
         if image.complete() {
-            self.0.tex_image_2d_with_u32_and_u32_and_image(
-                WebGl::TEXTURE_2D,
-                0,
-                WebGl::RGBA as i32,
-                WebGl::RGBA,
-                WebGl::UNSIGNED_BYTE,
-                image,
-            ).unwrap();
+            self.0
+                .tex_image_2d_with_u32_and_u32_and_image(
+                    WebGl::TEXTURE_2D,
+                    0,
+                    WebGl::RGBA as i32,
+                    WebGl::RGBA,
+                    WebGl::UNSIGNED_BYTE,
+                    image,
+                )
+                .unwrap();
 
             // setup texture things
             if is_power_two(image.width()) && is_power_two(image.height()) {
                 self.0.generate_mipmap(WebGl::TEXTURE_2D);
             }
 
-            self.0.tex_parameteri(WebGl::TEXTURE_2D, WebGl::TEXTURE_WRAP_S, WebGl::CLAMP_TO_EDGE as i32);
-            self.0.tex_parameteri(WebGl::TEXTURE_2D, WebGl::TEXTURE_WRAP_T, WebGl::CLAMP_TO_EDGE as i32);
-            self.0.tex_parameteri(WebGl::TEXTURE_2D, WebGl::TEXTURE_MIN_FILTER, WebGl::LINEAR as i32);
+            self.0.tex_parameteri(
+                WebGl::TEXTURE_2D,
+                WebGl::TEXTURE_WRAP_S,
+                WebGl::CLAMP_TO_EDGE as i32,
+            );
+            self.0.tex_parameteri(
+                WebGl::TEXTURE_2D,
+                WebGl::TEXTURE_WRAP_T,
+                WebGl::CLAMP_TO_EDGE as i32,
+            );
+            self.0.tex_parameteri(
+                WebGl::TEXTURE_2D,
+                WebGl::TEXTURE_MIN_FILTER,
+                WebGl::LINEAR as i32,
+            );
 
             texture
         } else {
@@ -91,48 +100,37 @@ impl GL {
         self.0.bind_texture(WebGl::TEXTURE_2D, Some(&texture));
 
         // this should always be valid
-        self.0.tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
-            WebGl::TEXTURE_2D,
-            0,
-            WebGl::RGBA as i32,
-            1,
-            1,
-            0,
-            WebGl::RGBA,
-            WebGl::UNSIGNED_BYTE,
-            Some(&[color.red(), color.green(), color.blue(), color.alpha()]),
-        ).unwrap();
+        self.0
+            .tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_opt_u8_array(
+                WebGl::TEXTURE_2D,
+                0,
+                WebGl::RGBA as i32,
+                1,
+                1,
+                0,
+                WebGl::RGBA,
+                WebGl::UNSIGNED_BYTE,
+                Some(&[color.red(), color.green(), color.blue(), color.alpha()]),
+            )
+            .unwrap();
 
         texture
     }
 
     /// Sets a uniform at the specified location to some [`Matrix3`].
-    pub fn uniform_matrix3(
-        &self,
-        uniform: &GLUniformLocation,
-        mat: &na::Matrix3<f32>,
-    ) {
-        self.0.uniform_matrix3fv_with_f32_array(
-            Some(uniform),
-            false,
-            mat.as_slice(),
-        );
+    pub fn uniform_matrix3(&self, uniform: &GLUniformLocation, mat: &na::Matrix3<f32>) {
+        self.0
+            .uniform_matrix3fv_with_f32_array(Some(uniform), false, mat.as_slice());
     }
 
     /// Creates a new static buffer.
-    pub fn create_static_buffer(
-        &self,
-        data: &[f32],
-    ) -> GLBuffer {
+    pub fn create_static_buffer(&self, data: &[f32]) -> GLBuffer {
         let buffer = GLBuffer(self.clone_ref(), self.0.create_buffer().unwrap());
         let data = js_sys::Float32Array::from(data);
 
         self.0.bind_buffer(GL::ARRAY_BUFFER, Some(&buffer));
-        self.0.buffer_data_with_array_buffer_view(
-            GL::ARRAY_BUFFER, 
-            &data, 
-            GL::STATIC_DRAW,
-        );
+        self.0
+            .buffer_data_with_array_buffer_view(GL::ARRAY_BUFFER, &data, GL::STATIC_DRAW);
 
         buffer
     }
@@ -140,12 +138,13 @@ impl GL {
     /// Gets the location of a uniform specified by name.
     pub fn get_uniform_location(
         &self,
-        program: &WebGlProgram, 
+        program: &WebGlProgram,
         name: &str,
     ) -> Result<GLUniformLocation, UniformNotFoundError> {
-        self.0.get_uniform_location(program, name)
+        self.0
+            .get_uniform_location(program, name)
             .map(|u| Ok(GLUniformLocation(self.clone_ref(), u)))
-            .unwrap_or(Err(UniformNotFoundError::new(name.to_string())))
+            .unwrap_or_else(|| Err(UniformNotFoundError::new(name.to_string())))
     }
 
     /// Creates and compiles a vertex shader.
@@ -159,11 +158,7 @@ impl GL {
     }
 
     /// Creates and compiles a shader.
-    pub fn compile_shader(
-        &self, 
-        kind: u32, 
-        src: &str,
-    ) -> Result<GLShader, ShaderCompileError> {
+    pub fn compile_shader(&self, kind: u32, src: &str) -> Result<GLShader, ShaderCompileError> {
         // create shader
         let shader = self.0.create_shader(kind).unwrap();
         let shader = GLShader(self.clone_ref(), shader);
@@ -173,7 +168,12 @@ impl GL {
         self.0.compile_shader(&shader);
 
         // check shader compilation issues
-        if self.0.get_shader_parameter(&shader, WebGl::COMPILE_STATUS).as_bool().unwrap() {
+        if self
+            .0
+            .get_shader_parameter(&shader, WebGl::COMPILE_STATUS)
+            .as_bool()
+            .unwrap()
+        {
             Ok(shader)
         } else {
             let err = self.0.get_shader_info_log(&shader).unwrap();
@@ -184,7 +184,7 @@ impl GL {
     /// Links a program together.
     pub fn link_program(
         &self,
-        vert: GLShader, 
+        vert: GLShader,
         frag: GLShader,
     ) -> Result<GLProgram, ProgramLinkError> {
         // create and link program
@@ -195,7 +195,12 @@ impl GL {
         self.0.link_program(&program);
 
         // check for link errors
-        if self.0.get_program_parameter(&program, WebGl::LINK_STATUS).as_bool().unwrap() {
+        if self
+            .0
+            .get_program_parameter(&program, WebGl::LINK_STATUS)
+            .as_bool()
+            .unwrap()
+        {
             Ok(program)
         } else {
             let err = self.0.get_program_info_log(&program).unwrap();
@@ -204,23 +209,15 @@ impl GL {
     }
 
     /// Binds a [`GLBuffer`] to an attribute.
-    pub fn attribute_buffer(
-        &self,
-        buf: &GLBuffer,
-        pos: u32,
-    ) {
+    pub fn attribute_buffer(&self, buf: &GLBuffer, pos: u32) {
         self.0.bind_buffer(GL::ARRAY_BUFFER, Some(buf));
-        self.0.vertex_attrib_pointer_with_i32(pos, 2, GL::FLOAT, false, 0, 0);
+        self.0
+            .vertex_attrib_pointer_with_i32(pos, 2, GL::FLOAT, false, 0, 0);
         self.0.enable_vertex_attrib_array(pos);
     }
 
     /// Binds a [`GLTexture`] to a uniform location.
-    pub fn uniform_tex(
-        &self,
-        tex: &GLTexture,
-        pos: &GLUniformLocation,
-        bind: usize,
-    ) {
+    pub fn uniform_tex(&self, tex: &GLTexture, pos: &GLUniformLocation, bind: usize) {
         debug_assert!(bind < 32);
 
         self.0.active_texture(bind as u32 + GL::TEXTURE0);
@@ -229,16 +226,9 @@ impl GL {
     }
 
     /// Attributes a [`Matrix4`] to a uniform location.
-    pub fn uniform_mat4(
-        &self,
-        mat: &Matrix4<f32>,
-        pos: &GLUniformLocation
-    ) {
-        self.0.uniform_matrix4fv_with_f32_array(
-            Some(pos),
-            false,
-            mat.as_slice(),
-        );
+    pub fn uniform_mat4(&self, mat: &Matrix4<f32>, pos: &GLUniformLocation) {
+        self.0
+            .uniform_matrix4fv_with_f32_array(Some(pos), false, mat.as_slice());
     }
 }
 
@@ -267,7 +257,7 @@ impl Drop for GLShader {
     }
 }
 
-impl Deref for GLShader  {
+impl Deref for GLShader {
     type Target = WebGlShader;
 
     fn deref(&self) -> &Self::Target {
@@ -348,7 +338,7 @@ fn is_power_two(value: u32) -> bool {
 macro_rules! reexport {
     ($const:ident) => {
         pub const $const: u32 = WebGl::$const;
-    }
+    };
 }
 
 impl GL {
@@ -365,4 +355,3 @@ impl GL {
     reexport!(ONE_MINUS_SRC_ALPHA);
     reexport!(COLOR_BUFFER_BIT);
 }
-

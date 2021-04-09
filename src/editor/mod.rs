@@ -2,21 +2,21 @@ pub mod assets;
 pub mod panel;
 pub mod view;
 
+use crate::services::image::{ImageService, ImageTask};
 use wasm_bindgen::JsValue;
 use web_sys::{console, HtmlCanvasElement, HtmlImageElement};
 use yew::prelude::*;
-use yew::services::render::{RenderTask, RenderService};
-use yew::services::resize::{ResizeTask, ResizeService};
-use crate::services::image::{ImageService, ImageTask};
+use yew::services::render::{RenderService, RenderTask};
+use yew::services::resize::{ResizeService, ResizeTask};
 
 use assets::PanelMap;
 pub use view::EditorView;
 
-use citrus_common::{PanelKind, Panel};
-use na::Vector2;
-use crate::gl::{GLTexture, GL, GlError};
 use crate::gl::shader::canvas::CanvasShader;
+use crate::gl::{GLTexture, GlError, GL};
 use crate::util::{MouseEvent, WheelEvent};
+use citrus_common::{Panel, PanelKind};
+use na::Vector2;
 
 pub struct FieldEditor {
     link: ComponentLink<Self>,
@@ -64,10 +64,10 @@ pub enum Texture {
 
 impl Component for FieldEditor {
     type Message = Msg;
-    type Properties = Props; 
+    type Properties = Props;
 
     fn create(props: Self::Properties, link: ComponentLink<Self>) -> Self {
-        FieldEditor { 
+        FieldEditor {
             link,
             props,
             mouse_last: MouseEvent::default(),
@@ -115,7 +115,7 @@ impl Component for FieldEditor {
 
                 // setup another request
                 self.request_animation_frame();
-            },
+            }
             Msg::MouseMove(ev) => {
                 let ev: MouseEvent = (&ev).into();
 
@@ -126,7 +126,7 @@ impl Component for FieldEditor {
 
                 // set as last mouse event
                 self.mouse_last = ev;
-            },
+            }
             Msg::MouseUp(ev) => {
                 let ev: MouseEvent = (&ev).into();
 
@@ -146,7 +146,7 @@ impl Component for FieldEditor {
                     // updated
                     self.emit_update();
                 }
-            },
+            }
             Msg::MouseWheel(ev) => {
                 let ev: WheelEvent = (&ev).into();
 
@@ -167,28 +167,29 @@ impl Component for FieldEditor {
             }
             Msg::ContextMenu(ev) => {
                 ev.prevent_default();
-            },
+            }
             Msg::TextureLoad((image, panel_kind)) => {
                 // NOTE: this call is completely sane, since the textures are
                 // only requested after the GL creation.
                 let gl = self.gl.as_ref().unwrap();
 
-                self.panel_textures[panel_kind] = Texture::Ready(
-                    gl.create_texture(&image),
-                );
-            },
+                self.panel_textures[panel_kind] = Texture::Ready(gl.create_texture(&image));
+            }
             Msg::TextureError((_image, panel_kind)) => {
-                console::log_1(&JsValue::from(format!("image for {:?} failed to load.", panel_kind)));
+                console::log_1(&JsValue::from(format!(
+                    "image for {:?} failed to load.",
+                    panel_kind
+                )));
 
                 self.panel_textures[panel_kind] = Texture::Error;
-            },
+            }
             Msg::PanelKindSelect(kind) => {
                 self.props.view.selected = kind;
-            },
+            }
             Msg::Resize => {
                 // rerender
                 return true;
-            },
+            }
         };
 
         false
@@ -197,7 +198,7 @@ impl Component for FieldEditor {
     fn view(&self) -> Html {
         html! {
             <div class="editor-container">
-                <panel::PanelSelector onselect=self.link.callback(Msg::PanelKindSelect) 
+                <panel::PanelSelector onselect=self.link.callback(Msg::PanelKindSelect)
                                       selected=self.props.view.selected />
                 <canvas class="editor-canvas"
                         oncontextmenu=self.link.callback(Msg::ContextMenu)
@@ -230,7 +231,7 @@ impl FieldEditor {
 
         // clear
         basic.clear();
-        
+
         // setup view matrix
         let mut draw = basic.begin_draw(&self.props.view.view);
 
@@ -245,10 +246,7 @@ impl FieldEditor {
 
             draw.texture(panel_tex);
 
-            draw.draw_rect(
-                x, y,
-                1., 1.,
-            );
+            draw.draw_rect(x, y, 1., 1.);
         }
     }
 
@@ -261,7 +259,10 @@ impl FieldEditor {
     }
 
     fn gl_invalidated(&self) -> bool {
-        self.gl.as_ref().map(|gl| gl.is_context_lost()).unwrap_or(true)
+        self.gl
+            .as_ref()
+            .map(|gl| gl.is_context_lost())
+            .unwrap_or(true)
     }
 
     fn build_gl(&mut self) {
@@ -269,11 +270,10 @@ impl FieldEditor {
         match GL::new(self.canvas()) {
             Some(gl) => {
                 self.gl = Some(gl);
-            },
+            }
             None => {
-                self.canvas().set_inner_text(
-                    "OpenGL is not supported on your browser."
-                );
+                self.canvas()
+                    .set_inner_text("OpenGL is not supported on your browser.");
             }
         }
     }
@@ -294,13 +294,13 @@ impl FieldEditor {
                         for error in error.errors() {
                             console::error_1(&JsValue::from_str(error));
                         }
-                    },
+                    }
                     err => {
                         console::error_1(&JsValue::from_str(&err.to_string()));
                     }
                 }
                 panic!("failed to compile shaders");
-            },
+            }
         };
 
         self.basic_shader = Some(basic_shader);
@@ -309,10 +309,8 @@ impl FieldEditor {
     fn update_size(&mut self) {
         let canvas = self.canvas();
 
-        self.canvas_size = Vector2::new(
-            canvas.client_width() as f32,
-            canvas.client_height() as f32,
-        );
+        self.canvas_size =
+            Vector2::new(canvas.client_width() as f32, canvas.client_height() as f32);
 
         if let Some(gl) = self.gl.as_ref() {
             canvas.set_width(self.canvas_size.x as u32);
@@ -332,7 +330,7 @@ impl FieldEditor {
 
             // make request
             if let Some(src) = src {
-                *image = Texture::Pending(ImageService::new(
+                *image = Texture::Pending(ImageService::fetch(
                     src,
                     self.link.callback(Msg::TextureLoad),
                     self.link.callback(Msg::TextureError),
@@ -343,14 +341,9 @@ impl FieldEditor {
     }
 
     fn textures_loaded(&self) -> bool {
-        self.panel_textures.iter()
-            .all(|(_, status)| {
-                match status {
-                    Texture::Ready(_) => true,
-                    Texture::Null => true,
-                    _ => false,
-                }
-            })
+        self.panel_textures
+            .iter()
+            .all(|(_, status)| matches!(status, Texture::Ready(_) | Texture::Null,))
     }
 
     fn setup_callbacks(&mut self) {
@@ -372,4 +365,3 @@ impl FieldEditor {
         self._render_request = Some(handle);
     }
 }
-

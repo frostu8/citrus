@@ -233,7 +233,8 @@ impl FieldEditor {
         basic.clear();
 
         // setup view matrix
-        let mut draw = basic.begin_draw(&self.props.view.view);
+        let mut draw = basic.begin_draw();
+        draw.set_transform(&self.props.view.view);
 
         for (x, y) in self.props.view.field.iter() {
             let panel = self.props.view.field.get(x, y);

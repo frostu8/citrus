@@ -25,8 +25,8 @@ impl CanvasShader {
         self.projection = Orthographic3::new(0., proj.x, proj.y, 0., -1., 1.);
     }
 
-    pub fn begin_draw<'a>(&'a mut self, transform: &Matrix4<f32>) -> DrawCommand<'a> {
-        DrawCommand::new(&mut self.program, &self.projection, transform)
+    pub fn begin_draw<'a>(&'a mut self) -> DrawCommand<'a> {
+        DrawCommand::new(&mut self.program, &self.projection)
     }
 }
 
@@ -107,7 +107,6 @@ impl<'a> DrawCommand<'a> {
     fn new(
         program: &'a mut CanvasShaderProgram,
         projection: &Orthographic3<f32>,
-        transform: &Matrix4<f32>,
     ) -> DrawCommand<'a> {
         // use program
         program.gl.use_program(Some(&program.program));
@@ -119,9 +118,13 @@ impl<'a> DrawCommand<'a> {
 
         DrawCommand {
             projection: *projection,
-            transform: *transform,
+            transform: Matrix4::identity(),
             program,
         }
+    }
+
+    pub fn set_transform(&mut self, transform: &Matrix4<f32>) {
+        self.transform = *transform;
     }
 
     pub fn texture(&mut self, tex: &GLTexture) {

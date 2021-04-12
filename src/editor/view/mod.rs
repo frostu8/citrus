@@ -185,6 +185,12 @@ impl EditorView {
         debug_assert!(size.0 >= 0, "size cannot be negative");
         debug_assert!(size.1 >= 0, "size cannot be negative");
 
+        // if the dimensions won't change anything, no point in making any
+        // changes
+        if size == self.field_size() && offset == (0, 0) {
+            return;
+        }
+
         let field = &self.field;
         let field = Field::new_iter((0..size.1).map(move |y| {
             (0..size.0).map(move |x| {

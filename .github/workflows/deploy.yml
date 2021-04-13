@@ -16,15 +16,40 @@ jobs:
     steps:
     # check out git files
     - uses: actions/checkout@v2
-    # get wasm-pack
+
+    # setup rust
+    - name: Install latest nightly
+      uses: actions-rs/toolchain@v1
+      with:
+        target: wasm32-unknown-unknown
+        toolchain: nightly
+        override: true
+
+    - name: Install wasm-bindgen-cli
+      uses: actions-rs/install@v0.1
+      with:
+        crate: wasm-bindgen-cli
+        version: latest
+        use-tool-cache: true
+
     - name: Install wasm-pack
-      uses: jetli/wasm-pack-action@v0.3.0
-    # get webpack and dependencies
-    - name: Get Webpack dependencies
-      run: npm install
-    # build using wasm-pack
+      uses: actions-rs/install@v0.1
+      with:
+        crate: wasm-pack
+        version: latest
+        use-tool-cache: true
+
+    - name: Install trunk
+      uses: actions-rs/install@v0.1
+      with:
+        crate: trunk
+        version: latest
+        use-tool-cache: true
+
+    # build server
     - name: Build
-      run: npm run build
+      run: trunk build
+
     # deploy
     - name: Deploy
       uses: peaceiris/actions-gh-pages@v3

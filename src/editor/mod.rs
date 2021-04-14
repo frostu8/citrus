@@ -13,7 +13,7 @@ use assets::PanelMap;
 pub use view::EditorView;
 
 use crate::gl::shader::canvas::CanvasShader;
-use crate::gl::{GLTexture, GlError, GL};
+use crate::gl::{GLTexture, GlError, GL, Rect};
 use crate::util::{MouseEvent, WheelEvent};
 use citrus_common::{Panel, PanelKind};
 use na::Vector2;
@@ -247,7 +247,7 @@ impl FieldEditor {
 
             draw.texture(panel_tex);
 
-            draw.draw_rect(x, y, 1., 1.);
+            draw.draw_rect(Rect::UNIT.offset(Vector2::new(x, y)));
         }
     }
 

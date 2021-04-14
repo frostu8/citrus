@@ -5,9 +5,11 @@
 //! do, but there you go.
 
 pub mod color;
+pub mod shapes;
 pub mod error;
 pub mod shader;
 
+pub use shapes::*;
 pub use color::*;
 pub use error::*;
 

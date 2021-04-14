@@ -131,13 +131,13 @@ impl<'a> DrawCommand<'a> {
         self.program.gl.uniform_tex(tex, &self.program.texture, 0);
     }
 
-    pub fn draw_rect(&mut self, x: f32, y: f32, width: f32, height: f32) {
+    pub fn draw_rect(&mut self, rect: Rect) {
         // bind the world matrix
         self.program.gl.uniform_mat4(
             &(self.projection.into_inner()
                 * self.transform
-                * Matrix4::new_translation(&Vector3::new(x, y, 0.))
-                    .prepend_nonuniform_scaling(&Vector3::new(width, height, 1.))),
+                * Matrix4::new_translation(&Vector3::new(rect.x, rect.y, 0.))
+                    .prepend_nonuniform_scaling(&Vector3::new(rect.width, rect.height, 1.))),
             &self.program.world_transform,
         );
 

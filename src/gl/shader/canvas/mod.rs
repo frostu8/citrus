@@ -25,7 +25,7 @@ impl CanvasShader {
         self.projection = Orthographic3::new(0., proj.x, proj.y, 0., -1., 1.);
     }
 
-    pub fn begin_draw<'a>(&'a mut self) -> DrawCommand<'a> {
+    pub fn begin_draw<'a, 'b>(&'a mut self) -> DrawCommand<'a, 'b> {
         DrawCommand::new(&mut self.program, &self.projection)
     }
 }
@@ -45,6 +45,7 @@ struct CanvasShaderProgram {
     // uniforms
     texture: GLUniformLocation,
     world_transform: GLUniformLocation,
+    tex_transform: GLUniformLocation,
     // attributes
     pos: u32,
     // static data
@@ -79,6 +80,7 @@ impl CanvasShaderProgram {
 
             texture: gl.get_uniform_location(&program, "uTexture")?,
             world_transform: gl.get_uniform_location(&program, "uWorldMatrix")?,
+            tex_transform: gl.get_uniform_location(&program, "uTextureMatrix")?,
 
             program,
             gl,
@@ -97,17 +99,18 @@ impl CanvasShaderProgram {
 ///
 /// # Warning!
 /// Only one of these should exist at a time!
-pub struct DrawCommand<'a> {
+pub struct DrawCommand<'a, 'b> {
     projection: Orthographic3<f32>,
     transform: Matrix4<f32>,
     program: &'a mut CanvasShaderProgram,
+    current_tex: Option<&'b GLTexture>,
 }
 
-impl<'a> DrawCommand<'a> {
+impl<'a, 'b> DrawCommand<'a, 'b> {
     fn new(
         program: &'a mut CanvasShaderProgram,
         projection: &Orthographic3<f32>,
-    ) -> DrawCommand<'a> {
+    ) -> DrawCommand<'a, 'b> {
         // use program
         program.gl.use_program(Some(&program.program));
 
@@ -120,6 +123,7 @@ impl<'a> DrawCommand<'a> {
             projection: *projection,
             transform: Matrix4::identity(),
             program,
+            current_tex: None,
         }
     }
 
@@ -127,11 +131,15 @@ impl<'a> DrawCommand<'a> {
         self.transform = *transform;
     }
 
-    pub fn texture(&mut self, tex: &GLTexture) {
+    pub fn texture(&mut self, tex: &'b GLTexture) {
         self.program.gl.uniform_tex(tex, &self.program.texture, 0);
+        self.current_tex = Some(tex);
     }
 
-    pub fn draw_rect(&mut self, rect: Rect) {
+    pub fn draw_full_rect(&mut self, rect: Rect) {
+        self.current_tex.as_ref()
+            .expect("Failed to draw with no active texture!");
+
         // bind the world matrix
         self.program.gl.uniform_mat4(
             &(self.projection.into_inner()
@@ -139,6 +147,34 @@ impl<'a> DrawCommand<'a> {
                 * Matrix4::new_translation(&Vector3::new(rect.x, rect.y, 0.))
                     .prepend_nonuniform_scaling(&Vector3::new(rect.width, rect.height, 1.))),
             &self.program.world_transform,
+        );
+        // bind the texture transform matrix
+        self.program.gl.uniform_mat4(
+            &Matrix4::identity(),
+            &self.program.tex_transform,
+        );
+
+        // draw
+        self.program.gl.draw_arrays(GL::TRIANGLE_STRIP, 0, 4);
+    }
+
+    pub fn draw_rect(&mut self, rect: Rect, src: Rect) {
+        let tex = self.current_tex.as_ref()
+            .expect("Failed to draw with no active texture!");
+
+        // bind the world matrix
+        self.program.gl.uniform_mat4(
+            &(self.projection.into_inner()
+                * self.transform
+                * Matrix4::new_translation(&Vector3::new(rect.x, rect.y, 0.))
+                    .prepend_nonuniform_scaling(&Vector3::new(rect.width, rect.height, 1.))),
+            &self.program.world_transform,
+        );
+        // bind the texture transform matrix
+        self.program.gl.uniform_mat4(
+            &(Matrix4::new_translation(&Vector3::new(src.x / tex.width(), src.y / tex.height(), 0.))
+                .prepend_nonuniform_scaling(&Vector3::new(src.width / tex.width(), src.height / tex.height(), 1.))),
+            &self.program.tex_transform,
         );
 
         // draw

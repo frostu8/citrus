@@ -247,7 +247,7 @@ impl FieldEditor {
 
             draw.texture(panel_tex);
 
-            draw.draw_rect(Rect::UNIT.offset(Vector2::new(x, y)));
+            draw.draw_full_rect(Rect::UNIT.offset(Vector2::new(x, y)));
         }
     }
 

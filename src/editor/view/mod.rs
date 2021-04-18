@@ -2,13 +2,17 @@ mod serde;
 
 use std::cmp::max;
 use std::rc::Rc;
+use std::io::Cursor;
 
 use citrus_common::{
     field::{Field, PanelMut, PanelRef},
+    format::fldx,
     Panel, PanelKind,
 };
 
 use na::{Matrix4, Vector2, Vector3, Vector4};
+
+pub const EXAMPLE_FIELD: &[u8] = include_bytes!("example.fldx");
 
 /// A view of a field.
 ///
@@ -33,23 +37,10 @@ impl EditorView {
     pub const MIN_ZOOM: f32 = Self::INITIAL_ZOOM / 4.;
 
     pub fn new_example() -> EditorView {
-        const EMPTY: Panel = Panel::EMPTY;
-        const HOME: Panel = Panel::new(PanelKind::Home);
-        const BONUS: Panel = Panel::new(PanelKind::Bonus);
-        const DRAW: Panel = Panel::new(PanelKind::Draw);
-        const ENCOUNTER: Panel = Panel::new(PanelKind::Encounter);
-        const DROP: Panel = Panel::new(PanelKind::Drop);
-
         EditorView {
             view: Matrix4::new_scaling(Self::INITIAL_ZOOM),
-            field: Rc::new(Field::new_slice(&[
-                &[HOME, BONUS, DRAW, ENCOUNTER, DROP, HOME],
-                &[DROP, EMPTY, EMPTY, EMPTY, EMPTY, BONUS],
-                &[ENCOUNTER, EMPTY, EMPTY, EMPTY, EMPTY, DRAW],
-                &[DRAW, EMPTY, EMPTY, EMPTY, EMPTY, ENCOUNTER],
-                &[BONUS, EMPTY, EMPTY, EMPTY, EMPTY, DROP],
-                &[HOME, DROP, ENCOUNTER, DRAW, BONUS, HOME],
-            ])),
+            field: Rc::new(fldx::decode(Cursor::new(EXAMPLE_FIELD))
+                .expect("could not decode example field")),
             selected: Self::DEFAULT_PANEL,
             needs_center: true,
         }

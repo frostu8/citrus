@@ -221,13 +221,9 @@ impl FieldEditor {
             if let Some(tex) = &self.panel_textures[panel.kind] {
                 let tex = tex.unwrap();
 
-<<<<<<< HEAD
                 draw.texture(tex);
-                draw.draw_rect(x, y, 1., 1.);
+                draw.draw_full_rect(Rect::UNIT.offset(Vector2::new(x, y)));
             }
-=======
-            draw.draw_full_rect(Rect::UNIT.offset(Vector2::new(x, y)));
->>>>>>> bd4265dde97f059d96251653f049cd0646b00f89
         }
     }
 

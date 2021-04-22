@@ -5,10 +5,12 @@
 //! do, but there you go.
 
 pub mod color;
+pub mod shapes;
 pub mod error;
 pub mod shader;
 pub mod util;
 
+pub use shapes::*;
 pub use color::*;
 pub use error::*;
 
@@ -50,7 +52,7 @@ impl GL {
     /// Panics if `image` is not a complete image.
     pub fn create_texture(&self, image: &HtmlImageElement) -> GLTexture {
         let texture = self.0.create_texture().unwrap();
-        let texture = GLTexture(self.clone_ref(), texture);
+        let mut texture = GLTexture::new(self.clone_ref(), texture);
         self.0.bind_texture(WebGl::TEXTURE_2D, Some(&texture));
 
         // create texture
@@ -65,6 +67,8 @@ impl GL {
                     image,
                 )
                 .unwrap();
+
+            texture.update_size(image.width() as f32, image.height() as f32);
 
             // setup texture things
             if is_power_two(image.width()) && is_power_two(image.height()) {
@@ -97,7 +101,7 @@ impl GL {
     /// [`Color`].
     pub fn solid_color_texture(&self, color: Color) -> GLTexture {
         let texture = self.0.create_texture().unwrap();
-        let texture = GLTexture(self.clone_ref(), texture);
+        let mut texture = GLTexture::new(self.clone_ref(), texture);
         self.0.bind_texture(WebGl::TEXTURE_2D, Some(&texture));
 
         // this should always be valid
@@ -114,6 +118,8 @@ impl GL {
                 Some(&[color.red(), color.green(), color.blue(), color.alpha()]),
             )
             .unwrap();
+
+        texture.update_size(1., 1.);
 
         texture
     }
@@ -267,11 +273,38 @@ impl Deref for GLShader {
 }
 
 /// Texture handle.
-pub struct GLTexture(WebGl, WebGlTexture);
+pub struct GLTexture { 
+    gl: WebGl, 
+    tex: WebGlTexture,
+    width: f32, height: f32,
+}
+
+impl GLTexture {
+    /// Wraps a `WebGlTexture`.
+    pub fn new(gl: WebGl, tex: WebGlTexture) -> GLTexture {
+        GLTexture {
+            gl, tex,
+            width: 0., height: 0.,
+        }
+    }
+
+    pub fn width(&self) -> f32 {
+        self.width
+    }
+
+    pub fn height(&self) -> f32 {
+        self.height
+    }
+
+    fn update_size(&mut self, width: f32, height: f32) {
+        self.width = width;
+        self.height = height;
+    }
+}
 
 impl Drop for GLTexture {
     fn drop(&mut self) {
-        self.0.delete_texture(Some(&self.1));
+        self.gl.delete_texture(Some(&self.tex));
     }
 }
 
@@ -279,7 +312,7 @@ impl Deref for GLTexture {
     type Target = WebGlTexture;
 
     fn deref(&self) -> &Self::Target {
-        &self.1
+        &self.tex
     }
 }
 

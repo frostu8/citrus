@@ -12,7 +12,7 @@ use assets::PanelMap;
 pub use view::EditorView;
 
 use crate::gl::shader::canvas::CanvasShader;
-use crate::gl::{GLTexture, GlError, GL};
+use crate::gl::{GLTexture, GlError, GL, Rect};
 use crate::gl::util::AsyncTexture;
 use crate::util::{MouseEvent, WheelEvent};
 use citrus_common::{Panel, PanelKind};
@@ -89,6 +89,8 @@ impl Component for FieldEditor {
         // only center if a center was requested
         if self.props.view.needs_center {
             self.props.view.center(&self.canvas_size);
+            // lower flag after centering is done
+            self.props.view.needs_center = false;
         }
 
         if first_render {
@@ -219,9 +221,13 @@ impl FieldEditor {
             if let Some(tex) = &self.panel_textures[panel.kind] {
                 let tex = tex.unwrap();
 
+<<<<<<< HEAD
                 draw.texture(tex);
                 draw.draw_rect(x, y, 1., 1.);
             }
+=======
+            draw.draw_full_rect(Rect::UNIT.offset(Vector2::new(x, y)));
+>>>>>>> bd4265dde97f059d96251653f049cd0646b00f89
         }
     }
 

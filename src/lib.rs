@@ -8,7 +8,6 @@ pub mod editor;
 pub mod enum_map;
 pub mod format;
 pub mod gl;
-pub mod services;
 pub mod util;
 
 #[cfg(test)]

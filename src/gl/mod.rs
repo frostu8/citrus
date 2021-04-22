@@ -7,6 +7,7 @@
 pub mod color;
 pub mod error;
 pub mod shader;
+pub mod util;
 
 pub use color::*;
 pub use error::*;

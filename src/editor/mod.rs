@@ -2,7 +2,6 @@ pub mod assets;
 pub mod panel;
 pub mod view;
 
-use crate::services::image::{ImageService, ImageTask};
 use wasm_bindgen::JsValue;
 use web_sys::{console, HtmlCanvasElement, HtmlImageElement};
 use yew::prelude::*;
@@ -14,6 +13,7 @@ pub use view::EditorView;
 
 use crate::gl::shader::canvas::CanvasShader;
 use crate::gl::{GLTexture, GlError, GL};
+use crate::gl::util::AsyncTexture;
 use crate::util::{MouseEvent, WheelEvent};
 use citrus_common::{Panel, PanelKind};
 use na::Vector2;
@@ -30,7 +30,7 @@ pub struct FieldEditor {
     canvas_size: Vector2<f32>,
     gl: Option<GL>,
     basic_shader: Option<CanvasShader>,
-    panel_textures: PanelMap<Texture>,
+    panel_textures: PanelMap<Option<AsyncTexture>>,
 
     // callback things
     _render_request: Option<RenderTask>,
@@ -49,17 +49,8 @@ pub enum Msg {
     MouseUp(web_sys::MouseEvent),
     MouseWheel(web_sys::WheelEvent),
     ContextMenu(web_sys::MouseEvent),
-    TextureLoad((HtmlImageElement, PanelKind)),
-    TextureError((HtmlImageElement, PanelKind)),
     PanelKindSelect(PanelKind),
     Resize,
-}
-
-pub enum Texture {
-    Ready(GLTexture),
-    Pending(ImageTask),
-    Error,
-    Null,
 }
 
 impl Component for FieldEditor {
@@ -75,7 +66,7 @@ impl Component for FieldEditor {
             canvas_size: na::zero(),
             gl: None,
             basic_shader: None,
-            panel_textures: PanelMap::new(|_| Texture::Null),
+            panel_textures: PanelMap::new_empty(),
             _render_request: None,
             _resize_request: None,
         }
@@ -168,21 +159,6 @@ impl Component for FieldEditor {
             Msg::ContextMenu(ev) => {
                 ev.prevent_default();
             }
-            Msg::TextureLoad((image, panel_kind)) => {
-                // NOTE: this call is completely sane, since the textures are
-                // only requested after the GL creation.
-                let gl = self.gl.as_ref().unwrap();
-
-                self.panel_textures[panel_kind] = Texture::Ready(gl.create_texture(&image));
-            }
-            Msg::TextureError((_image, panel_kind)) => {
-                console::log_1(&JsValue::from(format!(
-                    "image for {:?} failed to load.",
-                    panel_kind
-                )));
-
-                self.panel_textures[panel_kind] = Texture::Error;
-            }
             Msg::PanelKindSelect(kind) => {
                 self.props.view.selected = kind;
             }
@@ -240,14 +216,12 @@ impl FieldEditor {
             let panel = self.props.view.field.get(x, y);
             let (x, y) = (x as f32, y as f32);
 
-            let panel_tex = match &self.panel_textures[panel.kind] {
-                Texture::Ready(tex) => tex,
-                _ => continue,
-            };
+            if let Some(tex) = &self.panel_textures[panel.kind] {
+                let tex = tex.unwrap();
 
-            draw.texture(panel_tex);
-
-            draw.draw_rect(x, y, 1., 1.);
+                draw.texture(tex);
+                draw.draw_rect(x, y, 1., 1.);
+            }
         }
     }
 
@@ -326,25 +300,22 @@ impl FieldEditor {
     }
 
     fn request_panel_images(&mut self) {
+        let gl = self.gl.as_ref().unwrap();
+
         for (kind, image) in self.panel_textures.iter_mut() {
             let src = assets::panel_source(kind);
 
             // make request
             if let Some(src) = src {
-                *image = Texture::Pending(ImageService::fetch(
-                    src,
-                    self.link.callback(Msg::TextureLoad),
-                    self.link.callback(Msg::TextureError),
-                    kind,
-                ))
+                *image = Some(gl.async_load_texture(src));
             }
         }
     }
 
-    fn textures_loaded(&self) -> bool {
+    fn textures_loaded(&mut self) -> bool {
         self.panel_textures
-            .iter()
-            .all(|(_, status)| matches!(status, Texture::Ready(_) | Texture::Null,))
+            .iter_mut()
+            .all(|(_, tex)| tex.as_mut().map(|x| x.loaded()).unwrap_or(true))
     }
 
     fn setup_callbacks(&mut self) {
